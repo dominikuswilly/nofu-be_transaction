@@ -1,0 +1,13 @@
+services:
+  transaction-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    # Load environment variables from the .env file in the host
+    env_file:
+      - .env
+    environment:
+      - SERVER_PORT=8080
+    restart: unless-stopped
