@@ -22,13 +22,14 @@ type Server struct {
 	server *http.Server
 }
 
-func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler) *Server {
+func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler) *Server {
 	router := gin.Default()
 
 	// Group routes under /api/transaction
 	api := router.Group("/api/transaction")
 	{
 		api.GET("/health", healthHandler.HealthCheck)
+		api.GET("/stock", stockHandler.GetStock)
 	}
 
 	return &Server{
