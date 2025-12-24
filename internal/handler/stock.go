@@ -35,6 +35,7 @@ type StockDetail struct {
 	ID        string `json:"id"`
 	ProductID string `json:"product_id"`
 	PriceSell string `json:"price_sell"`
+	Qty       int32  `json:"qty"`
 }
 
 func (h *StockHandler) GetStock(c *gin.Context) {
@@ -56,6 +57,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 			A.c_id, 
 			A.c_product_id, 
 			A.d_price, 
+			A.i_qty,
 			B.c_merchant_id, 
 			B.c_created_by,
 			B.ts_created_at
@@ -81,8 +83,9 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 	for rows.Next() {
 		var id, productID string
 		var priceSell float64
+		var qty int32
 
-		if err := rows.Scan(&id, &productID, &priceSell, &merchantIDDb, &createdByDb, &createdAtDb); err != nil {
+		if err := rows.Scan(&id, &productID, &priceSell, &qty, &merchantIDDb, &createdByDb, &createdAtDb); err != nil {
 			slog.Error("Failed to scan row", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
@@ -92,6 +95,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 			ID:        id,
 			ProductID: productID,
 			PriceSell: fmt.Sprintf("%.2f", priceSell),
+			Qty:       qty,
 		})
 
 		firstRow = false
