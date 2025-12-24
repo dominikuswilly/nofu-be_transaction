@@ -1,5 +1,7 @@
 services:
   transaction-service:
+    platform: linux/amd64
+    image: app.netbird.cloud:8081/be-transaction/stable:1.0.0
     build:
       context: .
       dockerfile: Dockerfile
@@ -10,4 +12,4 @@ services:
       - .env
     environment:
       - SERVER_PORT=8080
-    restart: unless-stopped
+    restart: always
