@@ -12,6 +12,7 @@ import (
 
 	"nofu-be_transaction/internal/config"
 	"nofu-be_transaction/internal/handler"
+	"nofu-be_transaction/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,6 +25,9 @@ type Server struct {
 
 func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler) *Server {
 	router := gin.Default()
+
+	// Add custom logging middleware
+	router.Use(middleware.RequestLogger())
 
 	// Group routes under /api/transaction
 	api := router.Group("/api/transaction")
