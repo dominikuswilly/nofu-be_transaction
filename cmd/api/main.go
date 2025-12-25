@@ -37,7 +37,7 @@ func main() {
 
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db)
-	stockHandler := handler.NewStockHandler(db)
+	stockHandler := handler.NewStockHandler(db, cfg)
 
 	// Initialize server
 	srv := server.NewServer(cfg, healthHandler, stockHandler)

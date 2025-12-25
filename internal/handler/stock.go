@@ -1,21 +1,70 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"nofu-be_transaction/internal/config"
 )
 
 type StockHandler struct {
-	DB *pgxpool.Pool
+	DB     *pgxpool.Pool
+	Config *config.Config
 }
 
-func NewStockHandler(db *pgxpool.Pool) *StockHandler {
-	return &StockHandler{DB: db}
+func NewStockHandler(db *pgxpool.Pool, cfg *config.Config) *StockHandler {
+	return &StockHandler{
+		DB:     db,
+		Config: cfg,
+	}
+}
+
+// fetchProductDetails fetches product information from the external product API
+func (h *StockHandler) fetchProductDetails() (map[string]Product, error) {
+	productURL := h.Config.ProductServiceURL + "/products"
+
+	slog.Info("Fetching product details from external API", "url", productURL)
+
+	resp, err := http.Get(productURL)
+	if err != nil {
+		slog.Error("Failed to fetch products from API", "error", err, "url", productURL)
+		return nil, fmt.Errorf("failed to fetch products: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		slog.Error("Product API returned non-200 status", "status", resp.StatusCode)
+		return nil, fmt.Errorf("product API returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Error("Failed to read product API response", "error", err)
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var products []Product
+	if err := json.Unmarshal(body, &products); err != nil {
+		slog.Error("Failed to unmarshal product data", "error", err)
+		return nil, fmt.Errorf("failed to unmarshal products: %w", err)
+	}
+
+	// Create a map for quick lookup by product ID
+	productMap := make(map[string]Product)
+	for _, product := range products {
+		productMap[strconv.Itoa(product.ID)] = product
+	}
+
+	slog.Info("Successfully fetched products", "count", len(products))
+	return productMap, nil
 }
 
 type StockResponse struct {
@@ -32,11 +81,27 @@ type StockData struct {
 }
 
 type StockDetail struct {
-	ID        string `json:"id"`
-	ProductID string `json:"productId"`
-	PriceSell string `json:"priceSell"`
-	Qty       int32  `json:"qty"`
-	Currency  string `json:"currency"`
+	ID           string `json:"id"`
+	ProductID    string `json:"productId"`
+	ProductName  string `json:"productName"`
+	ProductImage string `json:"productImage"`
+	PriceSell    string `json:"priceSell"`
+	Qty          int32  `json:"qty"`
+	Currency     string `json:"currency"`
+}
+
+// Product represents the product data from external API
+type Product struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Price       int    `json:"price"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+	CreatedBy   string `json:"created_by"`
+	URL         string `json:"url"`
+	Currency    string `json:"currency"`
+	Stock       int    `json:"stock"`
 }
 
 func (h *StockHandler) GetStock(c *gin.Context) {
@@ -158,6 +223,26 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 
 	if stockDetails == nil {
 		stockDetails = []StockDetail{}
+	}
+
+	// Fetch product details from external API
+	productMap, err := h.fetchProductDetails()
+	if err != nil {
+		slog.Warn("Failed to fetch product details, continuing without product info", "error", err)
+		// Continue without product details - they will be empty strings
+		productMap = make(map[string]Product)
+	}
+
+	// Populate product name and image for each stock detail
+	for i := range stockDetails {
+		if product, found := productMap[stockDetails[i].ProductID]; found {
+			stockDetails[i].ProductName = product.Name
+			stockDetails[i].ProductImage = product.URL
+		} else {
+			slog.Warn("Product not found in product service", "product_id", stockDetails[i].ProductID)
+			stockDetails[i].ProductName = ""
+			stockDetails[i].ProductImage = ""
+		}
 	}
 
 	slog.Info("Stock query completed", "merchant_id", merchantID, "row_count", len(stockDetails), "first_row", firstRow)
