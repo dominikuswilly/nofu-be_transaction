@@ -11,5 +11,12 @@ services:
     env_file:
       - .env
     environment:
-      - SERVER_PORT=8080
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - SERVER_PORT=${SERVER_PORT:-8080}
+      - DB_TIMEZONE=${DB_TIMEZONE:-Asia/Jakarta}
+      - AUTH_VALIDATE_URL=${AUTH_VALIDATE_URL}
     restart: always
