@@ -47,7 +47,7 @@ func AuthMiddleware(authValidateURL string) gin.HandlerFunc {
 		token := parts[1]
 
 		// Create HTTP request to validate token
-		req, err := http.NewRequestWithContext(c.Request.Context(), "GET", authValidateURL, nil)
+		req, err := http.NewRequestWithContext(c.Request.Context(), "POST", authValidateURL, nil)
 		if err != nil {
 			slog.Error("Failed to create auth validation request", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
