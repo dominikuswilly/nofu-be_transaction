@@ -4,11 +4,27 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// cleanQuery removes newlines, tabs, and collapses multiple spaces into one
+func cleanQuery(query string) string {
+	// Replace newlines and tabs with spaces
+	query = strings.ReplaceAll(query, "\n", " ")
+	query = strings.ReplaceAll(query, "\t", " ")
+
+	// Collapse multiple spaces into one
+	for strings.Contains(query, "  ") {
+		query = strings.ReplaceAll(query, "  ", " ")
+	}
+
+	// Trim leading and trailing spaces
+	return strings.TrimSpace(query)
+}
 
 // queryTracer implements pgx.QueryTracer for logging SQL queries
 type queryTracer struct{}
@@ -40,14 +56,14 @@ func (qt *queryTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data p
 
 	if data.Err != nil {
 		slog.Error("SQL query failed",
-			"query", traceData.sql,
+			"query", cleanQuery(traceData.sql),
 			"args", traceData.args,
 			"duration_ms", duration.Milliseconds(),
 			"error", data.Err,
 		)
 	} else {
 		slog.Info("SQL query executed",
-			"query", traceData.sql,
+			"query", cleanQuery(traceData.sql),
 			"args", traceData.args,
 			"duration_ms", duration.Milliseconds(),
 			"rows_affected", data.CommandTag.RowsAffected(),
