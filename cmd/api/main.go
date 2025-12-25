@@ -33,7 +33,7 @@ func main() {
 	}
 	defer db.Close()
 
-	slog.Info("Connected to database successfully")
+	slog.Info("Connected to database successfully", "timezone", cfg.DBTimezone)
 
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db)

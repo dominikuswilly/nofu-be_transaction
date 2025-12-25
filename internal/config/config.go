@@ -14,6 +14,7 @@ type Config struct {
 	DBPassword string
 	DBName     string
 	ServerPort string
+	DBTimezone string
 }
 
 func LoadConfig() (*Config, error) {
@@ -27,10 +28,15 @@ func LoadConfig() (*Config, error) {
 		DBPassword: os.Getenv("DB_PASSWORD"),
 		DBName:     os.Getenv("DB_NAME"),
 		ServerPort: os.Getenv("SERVER_PORT"),
+		DBTimezone: os.Getenv("DB_TIMEZONE"), // Defaults to empty
 	}
 
 	if cfg.DBHost == "" || cfg.DBUser == "" {
 		return nil, fmt.Errorf("missing required environment variables")
+	}
+
+	if cfg.DBTimezone == "" {
+		cfg.DBTimezone = "Asia/Jakarta"
 	}
 
 	return cfg, nil
