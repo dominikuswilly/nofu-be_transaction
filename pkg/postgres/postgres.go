@@ -72,13 +72,19 @@ func (qt *queryTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data p
 }
 
 // NewClient creates a new PostgreSQL connection pool.
-func NewClient(ctx context.Context, host, port, user, password, dbname string) (*pgxpool.Pool, error) {
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, dbname)
+func NewClient(ctx context.Context, host, port, user, password, dbname, timezone string) (*pgxpool.Pool, error) {
+	// Build connection string
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable timezone=%s",
+		host, port, user, password, dbname, timezone)
 
-	config, err := pgxpool.ParseConfig(connStr)
+	// Parse config for pool
+	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse database config: %w", err)
+		return nil, fmt.Errorf("failed to parse pgxpool config: %w", err)
 	}
+
+	// Explicitly set timezone for ALL connections
+	config.ConnConfig.RuntimeParams["timezone"] = timezone
 
 	// Set connection pool settings
 	config.MaxConns = 10
@@ -88,14 +94,16 @@ func NewClient(ctx context.Context, host, port, user, password, dbname string) (
 	// Attach query tracer for SQL logging
 	config.ConnConfig.Tracer = &queryTracer{}
 
+	// Create connection pool
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create connection pool: %w", err)
+		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
-	// Ping the database to verify connection
+	// Test connection
 	if err := pool.Ping(ctx); err != nil {
-		return nil, fmt.Errorf("unable to connect to database: %w", err)
+		pool.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	return pool, nil

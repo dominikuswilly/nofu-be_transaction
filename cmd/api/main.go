@@ -26,7 +26,7 @@ func main() {
 	// Connect to database
 	// Create a context that can be cancelled
 	ctx := context.Background()
-	db, err := postgres.NewClient(ctx, cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName)
+	db, err := postgres.NewClient(ctx, cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBTimezone)
 	if err != nil {
 		slog.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
