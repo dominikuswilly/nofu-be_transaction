@@ -25,17 +25,18 @@ type StockResponse struct {
 }
 
 type StockData struct {
-	MerchantID  string        `json:"merchant_id"`
-	GivenBy     string        `json:"given_by"`
-	StockDetail []StockDetail `json:"stock_detail"`
-	CreatedAt   string        `json:"created_at"`
+	MerchantID  string        `json:"merchantId"`
+	GivenBy     string        `json:"givenBy"`
+	StockDetail []StockDetail `json:"stockDetail"`
+	CreatedAt   string        `json:"createdAt"`
 }
 
 type StockDetail struct {
 	ID        string `json:"id"`
-	ProductID string `json:"product_id"`
-	PriceSell string `json:"price_sell"`
+	ProductID string `json:"productId"`
+	PriceSell string `json:"priceSell"`
 	Qty       int32  `json:"qty"`
+	Currency  string `json:"currency"`
 }
 
 func (h *StockHandler) GetStock(c *gin.Context) {
@@ -76,6 +77,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 				A.c_product_id, 
 				A.d_price, 
 				A.i_qty,
+				A.c_currency,
 				B.c_merchant_id, 
 				B.c_created_by,
 				B.ts_created_at
@@ -97,6 +99,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 				A.c_product_id, 
 				A.d_price, 
 				A.i_qty,
+				A.c_currency,
 				B.c_merchant_id, 
 				B.c_created_by,
 				B.ts_created_at
@@ -126,8 +129,9 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 		var id, productID string
 		var priceSell float64
 		var qty int32
+		var currency string
 
-		if err := rows.Scan(&id, &productID, &priceSell, &qty, &merchantIDDb, &createdByDb, &createdAtDb); err != nil {
+		if err := rows.Scan(&id, &productID, &priceSell, &qty, &currency, &merchantIDDb, &createdByDb, &createdAtDb); err != nil {
 			slog.Error("Failed to scan row", "error", err, "merchant_id", merchantID)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
@@ -140,6 +144,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 			ProductID: productID,
 			PriceSell: fmt.Sprintf("%.2f", priceSell),
 			Qty:       qty,
+			Currency:  currency,
 		})
 
 		firstRow = false
