@@ -32,8 +32,15 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 	// Group routes under /api/transaction
 	api := router.Group("/api/transaction")
 	{
+		// Public/unprotected routes
 		api.GET("/health", healthHandler.HealthCheck)
-		api.GET("/stock", stockHandler.GetStock)
+
+		// Protected routes (require authentication)
+		protected := api.Group("")
+		protected.Use(middleware.AuthMiddleware(cfg.AuthValidateURL))
+		{
+			protected.GET("/stock", stockHandler.GetStock)
+		}
 	}
 
 	return &Server{
