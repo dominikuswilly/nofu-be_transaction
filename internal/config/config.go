@@ -21,6 +21,9 @@ type Config struct {
 	RabbitMQQueue      string
 	RabbitMQExchange   string
 	RabbitMQRoutingKey string
+	SalesQueue         string
+	SalesExchange      string
+	SalesRoutingKey    string
 }
 
 func LoadConfig() (*Config, error) {
@@ -41,6 +44,9 @@ func LoadConfig() (*Config, error) {
 		RabbitMQQueue:      os.Getenv("RABBITMQ_QUEUE"),
 		RabbitMQExchange:   os.Getenv("RABBITMQ_EXCHANGE"),
 		RabbitMQRoutingKey: os.Getenv("RABBITMQ_ROUTING_KEY"),
+		SalesQueue:         os.Getenv("SALES_QUEUE"),
+		SalesExchange:      os.Getenv("SALES_EXCHANGE"),
+		SalesRoutingKey:    os.Getenv("SALES_ROUTING_KEY"),
 	}
 
 	if cfg.DBHost == "" || cfg.DBUser == "" {
@@ -49,6 +55,17 @@ func LoadConfig() (*Config, error) {
 
 	if cfg.DBTimezone == "" {
 		cfg.DBTimezone = "Asia/Jakarta"
+	}
+
+	// Set default values for sales consumer if not provided
+	if cfg.SalesQueue == "" {
+		cfg.SalesQueue = "sales.queue"
+	}
+	if cfg.SalesExchange == "" {
+		cfg.SalesExchange = "sales.exchange"
+	}
+	if cfg.SalesRoutingKey == "" {
+		cfg.SalesRoutingKey = "transaction.sales"
 	}
 
 	return cfg, nil

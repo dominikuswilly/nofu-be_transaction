@@ -51,8 +51,9 @@ func main() {
 	// Initialize repositories
 	stockRepo := repository.NewStockRepository(db)
 
-	// Initialize consumer
+	// Initialize consumers
 	stockConsumer := consumer.NewStockConsumer(rabbitClient, stockRepo, cfg.RabbitMQQueue, cfg.RabbitMQExchange, cfg.RabbitMQRoutingKey)
+	salesConsumer := consumer.NewSalesConsumer(rabbitClient, stockRepo, cfg.SalesQueue, cfg.SalesExchange, cfg.SalesRoutingKey)
 
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db)
@@ -60,7 +61,7 @@ func main() {
 	stockProducerHandler := handler.NewStockProducerHandler(rabbitClient, cfg)
 
 	// Initialize server
-	srv := server.NewServer(cfg, healthHandler, stockHandler, stockProducerHandler, stockConsumer)
+	srv := server.NewServer(cfg, healthHandler, stockHandler, stockProducerHandler, stockConsumer, salesConsumer)
 
 	// Start server
 	if err := srv.Start(); err != nil {

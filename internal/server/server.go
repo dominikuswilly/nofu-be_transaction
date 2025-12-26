@@ -19,13 +19,14 @@ import (
 )
 
 type Server struct {
-	router   *gin.Engine
-	cfg      *config.Config
-	server   *http.Server
-	consumer *consumer.StockConsumer
+	router        *gin.Engine
+	cfg           *config.Config
+	server        *http.Server
+	stockConsumer *consumer.StockConsumer
+	salesConsumer *consumer.SalesConsumer
 }
 
-func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockProducerHandler *handler.StockProducerHandler, stockConsumer *consumer.StockConsumer) *Server {
+func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockProducerHandler *handler.StockProducerHandler, stockConsumer *consumer.StockConsumer, salesConsumer *consumer.SalesConsumer) *Server {
 	router := gin.Default()
 
 	// Add custom logging middleware
@@ -47,9 +48,10 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 	}
 
 	return &Server{
-		router:   router,
-		cfg:      cfg,
-		consumer: stockConsumer,
+		router:        router,
+		cfg:           cfg,
+		stockConsumer: stockConsumer,
+		salesConsumer: salesConsumer,
 		server: &http.Server{
 			Addr:    ":" + cfg.ServerPort,
 			Handler: router,
@@ -60,13 +62,23 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 func (s *Server) Start() error {
 	slog.Info("Starting server", "port", s.cfg.ServerPort)
 
-	// Start RabbitMQ consumer
+	// Start RabbitMQ consumers
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := s.consumer.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start stock consumer: %w", err)
-	}
+	// Start stock consumer
+	go func() {
+		if err := s.stockConsumer.Start(ctx); err != nil {
+			slog.Error("Stock consumer error", "error", err)
+		}
+	}()
+
+	// Start sales consumer
+	go func() {
+		if err := s.salesConsumer.Start(ctx); err != nil {
+			slog.Error("Sales consumer error", "error", err)
+		}
+	}()
 
 	// Start HTTP server
 	go func() {
@@ -84,9 +96,12 @@ func (s *Server) Start() error {
 	// Cancel consumer context
 	cancel()
 
-	// Stop consumer
-	if err := s.consumer.Stop(); err != nil {
-		slog.Error("Error stopping consumer", "error", err)
+	// Stop consumers
+	if err := s.stockConsumer.Stop(); err != nil {
+		slog.Error("Error stopping stock consumer", "error", err)
+	}
+	if err := s.salesConsumer.Stop(); err != nil {
+		slog.Error("Error stopping sales consumer", "error", err)
 	}
 
 	// Shutdown HTTP server
