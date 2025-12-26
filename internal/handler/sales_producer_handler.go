@@ -145,7 +145,7 @@ func (h *SalesProducerHandler) CreateSales(c *gin.Context) {
 		"merchant_id", merchantID,
 		"details_count", len(salesDetails))
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusCreated, gin.H{
 		"message": "Sales creation request accepted",
 		"status":  "success",
 	})
