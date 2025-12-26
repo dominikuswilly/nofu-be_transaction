@@ -45,18 +45,34 @@ func (h *SalesProducerHandler) CreateSales(c *gin.Context) {
 		return
 	}
 
-	// Extract claims from context
-	userID := c.GetString("sub")
+	// Extract claims from context - try multiple common keys
+	var userID string
+	keys := []string{"sub"}
+	for _, key := range keys {
+		if val := c.GetString(key); val != "" {
+			userID = val
+			break
+		}
+	}
+
 	if userID == "" {
-		slog.Error("User ID not found in context")
+		slog.Error("User ID not found in context (checked: sub)")
+		// Log all keys in context for debugging (be careful with sensitive data)
+		// for k, v := range c.Keys {
+		// 	slog.Info("Context key", "key", k, "value", v)
+		// }
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in token"})
 		return
 	}
 
-	// Assuming merchantId is also based on sub (as requested)
-	// Or check if there is a specific merchant_id claim.
-	// The user said: "userId and merchantId based on claims.sub"
-	merchantID := userID
+	// Try to finding specific merchant_id claim, or fallback to userID
+	merchantID := c.GetString("merchant_id")
+	if merchantID == "" {
+		merchantID = c.GetString("merchantId")
+	}
+	if merchantID == "" {
+		merchantID = userID
+	}
 
 	// Construct message
 	salesDetails := make([]models.SalesDetailMessage, len(req.SalesDetails))
