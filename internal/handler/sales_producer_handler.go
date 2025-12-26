@@ -47,7 +47,7 @@ func (h *SalesProducerHandler) CreateSales(c *gin.Context) {
 
 	// Extract claims from context - try multiple common keys
 	var userID string
-	keys := []string{"sub"}
+	keys := []string{"sub", "id", "user_id", "userId"}
 	for _, key := range keys {
 		if val := c.GetString(key); val != "" {
 			userID = val
@@ -56,7 +56,7 @@ func (h *SalesProducerHandler) CreateSales(c *gin.Context) {
 	}
 
 	if userID == "" {
-		slog.Error("User ID not found in context (checked: sub)")
+		slog.Error("User ID not found in context (checked: sub, id, user_id, userId)")
 		// Log all keys in context for debugging (be careful with sensitive data)
 		// for k, v := range c.Keys {
 		// 	slog.Info("Context key", "key", k, "value", v)
