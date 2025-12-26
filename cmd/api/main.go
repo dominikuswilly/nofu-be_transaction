@@ -52,7 +52,7 @@ func main() {
 	stockRepo := repository.NewStockRepository(db)
 
 	// Initialize consumer
-	stockConsumer := consumer.NewStockConsumer(rabbitClient, stockRepo, cfg.RabbitMQQueue)
+	stockConsumer := consumer.NewStockConsumer(rabbitClient, stockRepo, cfg.RabbitMQQueue, cfg.RabbitMQExchange, cfg.RabbitMQRoutingKey)
 
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db)

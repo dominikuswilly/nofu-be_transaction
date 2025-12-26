@@ -18,23 +18,37 @@ type StockConsumer struct {
 	rabbitClient *rabbitmq.Client
 	stockRepo    *repository.StockRepository
 	queueName    string
+	exchangeName string
+	routingKey   string
 }
 
-func NewStockConsumer(rabbitClient *rabbitmq.Client, stockRepo *repository.StockRepository, queueName string) *StockConsumer {
+func NewStockConsumer(rabbitClient *rabbitmq.Client, stockRepo *repository.StockRepository, queueName, exchangeName, routingKey string) *StockConsumer {
 	return &StockConsumer{
 		rabbitClient: rabbitClient,
 		stockRepo:    stockRepo,
 		queueName:    queueName,
+		exchangeName: exchangeName,
+		routingKey:   routingKey,
 	}
 }
 
 // Start begins consuming messages from RabbitMQ
 func (c *StockConsumer) Start(ctx context.Context) error {
-	slog.Info("Starting stock consumer", "queue", c.queueName)
+	slog.Info("Starting stock consumer", "queue", c.queueName, "exchange", c.exchangeName, "routing_key", c.routingKey)
+
+	// Declare the topic exchange
+	if err := c.rabbitClient.DeclareExchange(c.exchangeName, "topic"); err != nil {
+		return fmt.Errorf("failed to declare exchange: %w", err)
+	}
 
 	// Declare the queue to ensure it exists
 	if err := c.rabbitClient.DeclareQueue(c.queueName); err != nil {
 		return fmt.Errorf("failed to declare queue: %w", err)
+	}
+
+	// Bind the queue to the exchange with routing key pattern
+	if err := c.rabbitClient.BindQueue(c.queueName, c.exchangeName, c.routingKey); err != nil {
+		return fmt.Errorf("failed to bind queue to exchange: %w", err)
 	}
 
 	// Start consuming messages

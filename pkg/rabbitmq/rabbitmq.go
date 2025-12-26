@@ -57,6 +57,42 @@ func (c *Client) DeclareQueue(queueName string) error {
 	return nil
 }
 
+// DeclareExchange declares an exchange (creates it if it doesn't exist)
+func (c *Client) DeclareExchange(exchangeName, exchangeType string) error {
+	err := c.channel.ExchangeDeclare(
+		exchangeName, // name
+		exchangeType, // type (topic, direct, fanout, headers)
+		true,         // durable
+		false,        // auto-delete
+		false,        // internal
+		false,        // no-wait
+		nil,          // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("failed to declare exchange: %w", err)
+	}
+
+	slog.Info("Exchange declared successfully", "exchange", exchangeName, "type", exchangeType)
+	return nil
+}
+
+// BindQueue binds a queue to an exchange with a routing key pattern
+func (c *Client) BindQueue(queueName, exchangeName, routingKey string) error {
+	err := c.channel.QueueBind(
+		queueName,    // queue name
+		routingKey,   // routing key (pattern for topic exchange)
+		exchangeName, // exchange
+		false,        // no-wait
+		nil,          // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("failed to bind queue to exchange: %w", err)
+	}
+
+	slog.Info("Queue bound to exchange", "queue", queueName, "exchange", exchangeName, "routing_key", routingKey)
+	return nil
+}
+
 // Consume starts consuming messages from a queue
 func (c *Client) Consume(ctx context.Context, queueName string, handler func([]byte) error) error {
 	// Set QoS to process one message at a time
