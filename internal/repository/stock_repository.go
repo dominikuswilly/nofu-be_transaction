@@ -246,10 +246,12 @@ func (r *StockRepository) ProcessSalesTransaction(ctx context.Context, salesMast
 
 	// Reduce stock for each product and update stock ID in sales details
 	for i := range salesDetails {
-		_, err := r.ReduceStockByProductID(ctx, tx, salesDetails[i].CProductID, salesDetails[i].IQty, salesDetails[i].CStockID)
+		stockDetailID, err := r.ReduceStockByProductID(ctx, tx, salesDetails[i].CProductID, salesDetails[i].IQty, salesDetails[i].CStockID)
 		if err != nil {
 			return err
 		}
+		// Update the CStockID with the actual stock_detail c_id
+		salesDetails[i].CStockID = stockDetailID
 	}
 
 	// Insert sales master
