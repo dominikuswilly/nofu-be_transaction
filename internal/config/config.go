@@ -17,6 +17,8 @@ type Config struct {
 	DBTimezone        string
 	AuthValidateURL   string
 	ProductServiceURL string
+	RabbitMQURL       string
+	RabbitMQQueue     string
 }
 
 func LoadConfig() (*Config, error) {
@@ -33,6 +35,8 @@ func LoadConfig() (*Config, error) {
 		DBTimezone:        os.Getenv("DB_TIMEZONE"), // Defaults to empty
 		AuthValidateURL:   os.Getenv("AUTH_VALIDATE_URL"),
 		ProductServiceURL: os.Getenv("PRODUCT_SERVICE_URL"),
+		RabbitMQURL:       os.Getenv("RABBITMQ_URL"),
+		RabbitMQQueue:     os.Getenv("RABBITMQ_QUEUE"),
 	}
 
 	if cfg.DBHost == "" || cfg.DBUser == "" {

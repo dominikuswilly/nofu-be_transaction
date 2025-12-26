@@ -6,10 +6,13 @@ import (
 	"os"
 
 	"nofu-be_transaction/internal/config"
+	"nofu-be_transaction/internal/consumer"
 	"nofu-be_transaction/internal/handler"
+	"nofu-be_transaction/internal/repository"
 	"nofu-be_transaction/internal/server"
 	"nofu-be_transaction/pkg/logger"
 	"nofu-be_transaction/pkg/postgres"
+	"nofu-be_transaction/pkg/rabbitmq"
 )
 
 func main() {
@@ -35,12 +38,28 @@ func main() {
 
 	slog.Info("Connected to database successfully", "timezone", cfg.DBTimezone)
 
+	// Connect to RabbitMQ
+	rabbitClient, err := rabbitmq.NewClient(cfg.RabbitMQURL)
+	if err != nil {
+		slog.Error("Failed to connect to RabbitMQ", "error", err)
+		os.Exit(1)
+	}
+	defer rabbitClient.Close()
+
+	slog.Info("Connected to RabbitMQ successfully")
+
+	// Initialize repositories
+	stockRepo := repository.NewStockRepository(db)
+
+	// Initialize consumer
+	stockConsumer := consumer.NewStockConsumer(rabbitClient, stockRepo, cfg.RabbitMQQueue)
+
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db)
 	stockHandler := handler.NewStockHandler(db, cfg)
 
 	// Initialize server
-	srv := server.NewServer(cfg, healthHandler, stockHandler)
+	srv := server.NewServer(cfg, healthHandler, stockHandler, stockConsumer)
 
 	// Start server
 	if err := srv.Start(); err != nil {
