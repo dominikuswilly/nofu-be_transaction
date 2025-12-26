@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -45,22 +47,53 @@ func (h *SalesProducerHandler) CreateSales(c *gin.Context) {
 		return
 	}
 
-	// Extract claims from context - try multiple common keys
+	// Extract claims from Authorization header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		slog.Error("Missing Authorization header")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
+		return
+	}
+
+	// Remove "Bearer " prefix
+	tokenString := ""
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		tokenString = authHeader[7:]
+	} else {
+		tokenString = authHeader
+	}
+
+	// Parse JWT manually (since we don't have a library and just need the payload)
+	parts := strings.Split(tokenString, ".")
+	if len(parts) != 3 {
+		slog.Error("Invalid token format")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token format"})
+		return
+	}
+
+	// Decode payload (2nd part)
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		slog.Error("Failed to decode token payload", "error", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token payload"})
+		return
+	}
+
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		slog.Error("Failed to unmarshal token payload", "error", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+		return
+	}
+
+	// Get sub from claims
 	var userID string
-	keys := []string{"sub", "id", "user_id", "userId"}
-	for _, key := range keys {
-		if val := c.GetString(key); val != "" {
-			userID = val
-			break
-		}
+	if sub, ok := claims["sub"].(string); ok {
+		userID = sub
 	}
 
 	if userID == "" {
-		slog.Error("User ID not found in context (checked: sub, id, user_id, userId)")
-		// Log all keys in context for debugging
-		for k, v := range c.Keys {
-			slog.Info("Context key", "key", k, "value", v)
-		}
+		slog.Error("User ID (sub) not found in token claims")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in token"})
 		return
 	}
