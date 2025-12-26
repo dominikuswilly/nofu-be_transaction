@@ -151,25 +151,26 @@ func (r *StockRepository) InsertStockTransaction(ctx context.Context, stockMaste
 	return nil
 }
 
-// ReduceStockByProductID reduces stock quantity for a specific product
-func (r *StockRepository) ReduceStockByProductID(ctx context.Context, tx pgx.Tx, productID string, qty int32, stockID string) error {
+// ReduceStockByProductID reduces stock quantity for a specific product and returns the stock_detail ID
+func (r *StockRepository) ReduceStockByProductID(ctx context.Context, tx pgx.Tx, productID string, qty int32, stockID string) (string, error) {
 	query := `
 		UPDATE stock_detail
 		SET i_qty = i_qty - $1
 		WHERE c_product_id = $2 AND i_qty >= $1 AND c_stock_id = $3
+		RETURNING c_id
 	`
 
-	cmdTag, err := tx.Exec(ctx, query, qty, productID, stockID)
+	var updatedStockDetailID string
+	err := tx.QueryRow(ctx, query, qty, productID, stockID).Scan(&updatedStockDetailID)
 	if err != nil {
-		return fmt.Errorf("failed to reduce stock for product %s: %w", productID, err)
+		if err == pgx.ErrNoRows {
+			return "", fmt.Errorf("insufficient stock for product %s (required: %d)", productID, qty)
+		}
+		return "", fmt.Errorf("failed to reduce stock for product %s: %w", productID, err)
 	}
 
-	if cmdTag.RowsAffected() == 0 {
-		return fmt.Errorf("insufficient stock for product %s (required: %d)", productID, qty)
-	}
-
-	slog.Info("Reduced stock", "product_id", productID, "qty", qty)
-	return nil
+	slog.Info("Reduced stock", "product_id", productID, "qty", qty, "stock_detail_id", updatedStockDetailID)
+	return updatedStockDetailID, nil
 }
 
 // InsertSalesMaster inserts a new sales master record
@@ -243,11 +244,14 @@ func (r *StockRepository) ProcessSalesTransaction(ctx context.Context, salesMast
 	}
 	defer tx.Rollback(ctx) // Rollback if not committed
 
-	// Reduce stock for each product
-	for _, detail := range salesDetails {
-		if err := r.ReduceStockByProductID(ctx, tx, detail.CProductID, detail.IQty, detail.CStockID); err != nil {
+	// Reduce stock for each product and update stock ID in sales details
+	for i := range salesDetails {
+		stockDetailID, err := r.ReduceStockByProductID(ctx, tx, salesDetails[i].CProductID, salesDetails[i].IQty, salesDetails[i].CStockID)
+		if err != nil {
 			return err
 		}
+		// Update the CStockID with the actual stock_detail c_id
+		salesDetails[i].CStockID = stockDetailID
 	}
 
 	// Insert sales master
