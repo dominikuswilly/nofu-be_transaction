@@ -57,9 +57,10 @@ func main() {
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db)
 	stockHandler := handler.NewStockHandler(db, cfg)
+	stockProducerHandler := handler.NewStockProducerHandler(rabbitClient, cfg)
 
 	// Initialize server
-	srv := server.NewServer(cfg, healthHandler, stockHandler, stockConsumer)
+	srv := server.NewServer(cfg, healthHandler, stockHandler, stockProducerHandler, stockConsumer)
 
 	// Start server
 	if err := srv.Start(); err != nil {

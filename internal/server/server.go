@@ -25,7 +25,7 @@ type Server struct {
 	consumer *consumer.StockConsumer
 }
 
-func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockConsumer *consumer.StockConsumer) *Server {
+func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockProducerHandler *handler.StockProducerHandler, stockConsumer *consumer.StockConsumer) *Server {
 	router := gin.Default()
 
 	// Add custom logging middleware
@@ -42,6 +42,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 		protected.Use(middleware.AuthMiddleware(cfg.AuthValidateURL))
 		{
 			protected.GET("/stock", stockHandler.GetStock)
+			protected.POST("/stock/create", stockProducerHandler.CreateStock)
 		}
 	}
 

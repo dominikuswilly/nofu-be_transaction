@@ -93,6 +93,27 @@ func (c *Client) BindQueue(queueName, exchangeName, routingKey string) error {
 	return nil
 }
 
+// Publish publishes a message to an exchange with a routing key
+func (c *Client) Publish(exchangeName, routingKey string, body []byte) error {
+	err := c.channel.Publish(
+		exchangeName, // exchange
+		routingKey,   // routing key
+		false,        // mandatory
+		false,        // immediate
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         body,
+			DeliveryMode: 2, // persistent
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to publish message: %w", err)
+	}
+
+	slog.Info("Message published successfully", "exchange", exchangeName, "routing_key", routingKey, "body_size", len(body))
+	return nil
+}
+
 // Consume starts consuming messages from a queue
 func (c *Client) Consume(ctx context.Context, queueName string, handler func([]byte) error) error {
 	// Set QoS to process one message at a time
