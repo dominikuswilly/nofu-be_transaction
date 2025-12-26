@@ -52,6 +52,7 @@ type SalesDetail struct {
 	IQty       int32   // i_qty - quantity sold
 	DPrice     float64 // d_price - numeric(10,4)
 	CCurrency  string  // c_currency - currency code
+	CStockID   string  // c_stock_id - foreign key to stock_master.c_id
 }
 
 // SalesMessage represents the incoming RabbitMQ message for sales
@@ -67,4 +68,5 @@ type SalesDetailMessage struct {
 	Qty       int32   `json:"qty"`
 	Price     float64 `json:"price"`
 	Currency  string  `json:"currency"`
+	StockID   string  `json:"stockId"`
 }

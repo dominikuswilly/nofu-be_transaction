@@ -152,14 +152,14 @@ func (r *StockRepository) InsertStockTransaction(ctx context.Context, stockMaste
 }
 
 // ReduceStockByProductID reduces stock quantity for a specific product
-func (r *StockRepository) ReduceStockByProductID(ctx context.Context, tx pgx.Tx, productID string, qty int32) error {
+func (r *StockRepository) ReduceStockByProductID(ctx context.Context, tx pgx.Tx, productID string, qty int32, stockID string) error {
 	query := `
 		UPDATE stock_detail
 		SET i_qty = i_qty - $1
-		WHERE c_product_id = $2 AND i_qty >= $1
+		WHERE c_product_id = $2 AND i_qty >= $1 AND c_stock_id = $3
 	`
 
-	cmdTag, err := tx.Exec(ctx, query, qty, productID)
+	cmdTag, err := tx.Exec(ctx, query, qty, productID, stockID)
 	if err != nil {
 		return fmt.Errorf("failed to reduce stock for product %s: %w", productID, err)
 	}
@@ -202,8 +202,8 @@ func (r *StockRepository) InsertSalesDetails(ctx context.Context, tx pgx.Tx, sal
 
 	batch := &pgx.Batch{}
 	query := `
-		INSERT INTO sales_detail (c_id, c_sales_id, c_product_id, i_qty, d_price, c_currency)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO sales_detail (c_id, c_sales_id, c_product_id, i_qty, d_price, c_currency, c_stock_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
 	for _, detail := range salesDetails {
@@ -214,6 +214,7 @@ func (r *StockRepository) InsertSalesDetails(ctx context.Context, tx pgx.Tx, sal
 			detail.IQty,
 			detail.DPrice,
 			detail.CCurrency,
+			detail.CStockID,
 		)
 	}
 
@@ -244,7 +245,7 @@ func (r *StockRepository) ProcessSalesTransaction(ctx context.Context, salesMast
 
 	// Reduce stock for each product
 	for _, detail := range salesDetails {
-		if err := r.ReduceStockByProductID(ctx, tx, detail.CProductID, detail.IQty); err != nil {
+		if err := r.ReduceStockByProductID(ctx, tx, detail.CProductID, detail.IQty, detail.CStockID); err != nil {
 			return err
 		}
 	}
