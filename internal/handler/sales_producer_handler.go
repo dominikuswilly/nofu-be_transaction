@@ -57,10 +57,10 @@ func (h *SalesProducerHandler) CreateSales(c *gin.Context) {
 
 	if userID == "" {
 		slog.Error("User ID not found in context (checked: sub, id, user_id, userId)")
-		// Log all keys in context for debugging (be careful with sensitive data)
-		// for k, v := range c.Keys {
-		// 	slog.Info("Context key", "key", k, "value", v)
-		// }
+		// Log all keys in context for debugging
+		for k, v := range c.Keys {
+			slog.Info("Context key", "key", k, "value", v)
+		}
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in token"})
 		return
 	}
