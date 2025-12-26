@@ -35,3 +35,36 @@ type StockDetailMessage struct {
 	Qty       int32   `json:"qty"`
 	Currency  string  `json:"currency"`
 }
+
+// SalesMaster represents the sales_master table
+type SalesMaster struct {
+	CID         string    // c_id - UUID v7
+	TsCreatedAt time.Time // ts_created_at - auto-generated
+	CCreatedBy  string    // c_created_by - based on authorization claims.sub
+	CMerchantID string    // c_merchant_id - from request body
+}
+
+// SalesDetail represents the sales_detail table
+type SalesDetail struct {
+	CID        string  // c_id - UUID v7
+	CSalesID   string  // c_sales_id - foreign key to sales_master.c_id
+	CProductID string  // c_product_id - from request
+	IQty       int32   // i_qty - quantity sold
+	DPrice     float64 // d_price - numeric(10,4)
+	CCurrency  string  // c_currency - currency code
+}
+
+// SalesMessage represents the incoming RabbitMQ message for sales
+type SalesMessage struct {
+	UserID       string               `json:"userId"`       // For c_created_by
+	MerchantID   string               `json:"merchantId"`   // For c_merchant_id
+	SalesDetails []SalesDetailMessage `json:"salesDetails"` // Sales items
+}
+
+// SalesDetailMessage represents individual sales items in the message
+type SalesDetailMessage struct {
+	ProductID string  `json:"productId"`
+	Qty       int32   `json:"qty"`
+	Price     float64 `json:"price"`
+	Currency  string  `json:"currency"`
+}
