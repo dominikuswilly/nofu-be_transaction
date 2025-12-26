@@ -38,7 +38,22 @@ func main() {
 
 	slog.Info("Connected to database successfully", "timezone", cfg.DBTimezone)
 
-	// Connect to RabbitMQ
+	// Connect to RabbitMQ - Create separate clients for each consumer
+	rabbitClientStock, err := rabbitmq.NewClient(cfg.RabbitMQURL)
+	if err != nil {
+		slog.Error("Failed to connect to RabbitMQ for stock consumer", "error", err)
+		os.Exit(1)
+	}
+	defer rabbitClientStock.Close()
+
+	rabbitClientSales, err := rabbitmq.NewClient(cfg.RabbitMQURL)
+	if err != nil {
+		slog.Error("Failed to connect to RabbitMQ for sales consumer", "error", err)
+		os.Exit(1)
+	}
+	defer rabbitClientSales.Close()
+
+	// Keep one general client for producers/handlers
 	rabbitClient, err := rabbitmq.NewClient(cfg.RabbitMQURL)
 	if err != nil {
 		slog.Error("Failed to connect to RabbitMQ", "error", err)
@@ -51,9 +66,9 @@ func main() {
 	// Initialize repositories
 	stockRepo := repository.NewStockRepository(db)
 
-	// Initialize consumers
-	stockConsumer := consumer.NewStockConsumer(rabbitClient, stockRepo, cfg.RabbitMQQueue, cfg.RabbitMQExchange, cfg.RabbitMQRoutingKey)
-	salesConsumer := consumer.NewSalesConsumer(rabbitClient, stockRepo, cfg.SalesQueue, cfg.SalesExchange, cfg.SalesRoutingKey)
+	// Initialize consumers with their own dedicated RabbitMQ clients
+	stockConsumer := consumer.NewStockConsumer(rabbitClientStock, stockRepo, cfg.RabbitMQQueue, cfg.RabbitMQExchange, cfg.RabbitMQRoutingKey)
+	salesConsumer := consumer.NewSalesConsumer(rabbitClientSales, stockRepo, cfg.SalesQueue, cfg.SalesExchange, cfg.SalesRoutingKey)
 
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db)
