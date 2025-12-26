@@ -19,14 +19,15 @@ import (
 )
 
 type Server struct {
-	router        *gin.Engine
-	cfg           *config.Config
-	server        *http.Server
-	stockConsumer *consumer.StockConsumer
-	salesConsumer *consumer.SalesConsumer
+	router               *gin.Engine
+	cfg                  *config.Config
+	server               *http.Server
+	stockConsumer        *consumer.StockConsumer
+	salesConsumer        *consumer.SalesConsumer
+	salesProducerHandler *handler.SalesProducerHandler
 }
 
-func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockProducerHandler *handler.StockProducerHandler, stockConsumer *consumer.StockConsumer, salesConsumer *consumer.SalesConsumer) *Server {
+func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockProducerHandler *handler.StockProducerHandler, stockConsumer *consumer.StockConsumer, salesConsumer *consumer.SalesConsumer, salesProducerHandler *handler.SalesProducerHandler) *Server {
 	router := gin.Default()
 
 	// Add custom logging middleware
@@ -44,14 +45,16 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 		{
 			protected.GET("/stock", stockHandler.GetStock)
 			protected.POST("/stock/create", stockProducerHandler.CreateStock)
+			protected.POST("/sales/create", salesProducerHandler.CreateSales)
 		}
 	}
 
 	return &Server{
-		router:        router,
-		cfg:           cfg,
-		stockConsumer: stockConsumer,
-		salesConsumer: salesConsumer,
+		router:               router,
+		cfg:                  cfg,
+		stockConsumer:        stockConsumer,
+		salesConsumer:        salesConsumer,
+		salesProducerHandler: salesProducerHandler,
 		server: &http.Server{
 			Addr:    ":" + cfg.ServerPort,
 			Handler: router,
