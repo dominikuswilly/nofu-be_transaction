@@ -43,10 +43,10 @@ type SalesHistoryData struct {
 }
 
 type SalesDetailHistory struct {
-	ProductID     string `json:"c_product_id"`
-	TotalQuantity int32  `json:"total_quantity"`
-	MerchantID    string `json:"c_merchant_id"`
-	CreatedBy     string `json:"c_created_by"`
+	ProductID     string `json:"productId"`
+	TotalQuantity int32  `json:"totalQuantity"`
+	MerchantID    string `json:"merchantId"`
+	CreatedBy     string `json:"createdBy"`
 	ProductName   string `json:"productName,omitempty"`
 	ProductImage  string `json:"productImage,omitempty"`
 }
