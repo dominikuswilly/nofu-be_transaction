@@ -152,16 +152,16 @@ func (r *StockRepository) InsertStockTransaction(ctx context.Context, stockMaste
 }
 
 // ReduceStockByProductID reduces stock quantity for a specific product and returns the stock_detail ID
-func (r *StockRepository) ReduceStockByProductID(ctx context.Context, tx pgx.Tx, productID string, qty int32, stockID string) (string, error) {
+func (r *StockRepository) ReduceStockByProductID(ctx context.Context, tx pgx.Tx, productID string, qty int32, stockDetailID string) (string, error) {
 	query := `
 		UPDATE stock_detail
 		SET i_qty = i_qty - $1
-		WHERE c_product_id = $2 AND i_qty >= $1 AND c_stock_id = $3
+		WHERE c_product_id = $2 AND i_qty >= $1 AND c_id = $3
 		RETURNING c_id
 	`
 
 	var updatedStockDetailID string
-	err := tx.QueryRow(ctx, query, qty, productID, stockID).Scan(&updatedStockDetailID)
+	err := tx.QueryRow(ctx, query, qty, productID, stockDetailID).Scan(&updatedStockDetailID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return "", fmt.Errorf("insufficient stock for product %s (required: %d)", productID, qty)
@@ -203,7 +203,7 @@ func (r *StockRepository) InsertSalesDetails(ctx context.Context, tx pgx.Tx, sal
 
 	batch := &pgx.Batch{}
 	query := `
-		INSERT INTO sales_detail (c_id, c_sales_id, c_product_id, i_qty, d_price, c_currency, c_stock_id)
+		INSERT INTO sales_detail (c_id, c_sales_id, c_product_id, i_qty, d_price, c_currency, c_stock_detail_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
@@ -215,7 +215,7 @@ func (r *StockRepository) InsertSalesDetails(ctx context.Context, tx pgx.Tx, sal
 			detail.IQty,
 			detail.DPrice,
 			detail.CCurrency,
-			detail.CStockID,
+			detail.CStockDetailID,
 		)
 	}
 
@@ -246,12 +246,12 @@ func (r *StockRepository) ProcessSalesTransaction(ctx context.Context, salesMast
 
 	// Reduce stock for each product and update stock ID in sales details
 	for i := range salesDetails {
-		stockDetailID, err := r.ReduceStockByProductID(ctx, tx, salesDetails[i].CProductID, salesDetails[i].IQty, salesDetails[i].CStockID)
+		stockDetailID, err := r.ReduceStockByProductID(ctx, tx, salesDetails[i].CProductID, salesDetails[i].IQty, salesDetails[i].CStockDetailID)
 		if err != nil {
 			return err
 		}
 		// Update the CStockID with the actual stock_detail c_id
-		salesDetails[i].CStockID = stockDetailID
+		salesDetails[i].CStockDetailID = stockDetailID
 	}
 
 	// Insert sales master

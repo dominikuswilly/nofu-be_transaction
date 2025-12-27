@@ -46,13 +46,13 @@ type SalesMaster struct {
 
 // SalesDetail represents the sales_detail table
 type SalesDetail struct {
-	CID        string  // c_id - UUID v7
-	CSalesID   string  // c_sales_id - foreign key to sales_master.c_id
-	CProductID string  // c_product_id - from request
-	IQty       int32   // i_qty - quantity sold
-	DPrice     float64 // d_price - numeric(10,4)
-	CCurrency  string  // c_currency - currency code
-	CStockID   string  // c_stock_id - foreign key to stock_master.c_id
+	CID            string  // c_id - UUID v7
+	CSalesID       string  // c_sales_id - foreign key to sales_master.c_id
+	CProductID     string  // c_product_id - from request
+	IQty           int32   // i_qty - quantity sold
+	DPrice         float64 // d_price - numeric(10,4)
+	CCurrency      string  // c_currency - currency code
+	CStockDetailID string  // c_stock_detail_id - foreign key to stock_detail.c_stock_detail_id
 }
 
 // SalesMessage represents the incoming RabbitMQ message for sales
@@ -64,9 +64,9 @@ type SalesMessage struct {
 
 // SalesDetailMessage represents individual sales items in the message
 type SalesDetailMessage struct {
-	ProductID string  `json:"productId"`
-	Qty       int32   `json:"qty"`
-	Price     float64 `json:"price"`
-	Currency  string  `json:"currency"`
-	StockID   string  `json:"stockId"`
+	ProductID     string  `json:"productId"`
+	Qty           int32   `json:"qty"`
+	Price         float64 `json:"price"`
+	Currency      string  `json:"currency"`
+	StockDetailID string  `json:"stockDetailId"`
 }

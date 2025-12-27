@@ -102,13 +102,13 @@ func (c *SalesConsumer) handleMessage(body []byte) error {
 		}
 
 		salesDetails = append(salesDetails, models.SalesDetail{
-			CID:        detailID.String(),
-			CSalesID:   salesMasterID.String(),
-			CProductID: detail.ProductID,
-			IQty:       detail.Qty,
-			DPrice:     detail.Price,
-			CCurrency:  detail.Currency,
-			CStockID:   detail.StockID,
+			CID:            detailID.String(),
+			CSalesID:       salesMasterID.String(),
+			CProductID:     detail.ProductID,
+			IQty:           detail.Qty,
+			DPrice:         detail.Price,
+			CCurrency:      detail.Currency,
+			CStockDetailID: detail.StockDetailID,
 		})
 	}
 
@@ -152,8 +152,8 @@ func (c *SalesConsumer) validateMessage(msg *models.SalesMessage) error {
 		if detail.Currency == "" {
 			return fmt.Errorf("currency is required for detail at index %d", i)
 		}
-		if detail.StockID == "" {
-			return fmt.Errorf("stockId is required for detail at index %d", i)
+		if detail.StockDetailID == "" {
+			return fmt.Errorf("stockDetailId is required for detail at index %d", i)
 		}
 	}
 

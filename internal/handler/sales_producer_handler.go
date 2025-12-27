@@ -30,11 +30,11 @@ func NewSalesProducerHandler(stockRepo *repository.StockRepository, cfg *config.
 
 // Request models
 type SalesDetailRequest struct {
-	ProductID string  `json:"productId" binding:"required"`
-	Qty       int32   `json:"qty" binding:"required"`
-	Price     float64 `json:"price" binding:"required"`
-	Currency  string  `json:"currency" binding:"required"`
-	StockID   string  `json:"stockId" binding:"required"`
+	ProductID     string  `json:"productId" binding:"required"`
+	Qty           int32   `json:"qty" binding:"required"`
+	Price         float64 `json:"price" binding:"required"`
+	Currency      string  `json:"currency" binding:"required"`
+	StockDetailID string  `json:"stockDetailId" binding:"required"`
 }
 
 type CreateSalesRequest struct {
@@ -136,13 +136,13 @@ func (h *SalesProducerHandler) CreateSales(c *gin.Context) {
 		}
 
 		salesDetails[i] = models.SalesDetail{
-			CID:        detailID.String(),
-			CSalesID:   salesMaster.CID,
-			CProductID: d.ProductID,
-			IQty:       d.Qty,
-			DPrice:     d.Price,
-			CCurrency:  d.Currency,
-			CStockID:   d.StockID,
+			CID:            detailID.String(),
+			CSalesID:       salesMaster.CID,
+			CProductID:     d.ProductID,
+			IQty:           d.Qty,
+			DPrice:         d.Price,
+			CCurrency:      d.Currency,
+			CStockDetailID: d.StockDetailID,
 		}
 	}
 
