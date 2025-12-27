@@ -6,23 +6,25 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"nofu-be_transaction/internal/config"
 	"nofu-be_transaction/internal/models"
-	"nofu-be_transaction/pkg/rabbitmq"
+	"nofu-be_transaction/internal/repository"
 )
 
 type SalesProducerHandler struct {
-	rabbitClient *rabbitmq.Client
-	cfg          *config.Config
+	stockRepo *repository.StockRepository
+	cfg       *config.Config
 }
 
-func NewSalesProducerHandler(rabbitClient *rabbitmq.Client, cfg *config.Config) *SalesProducerHandler {
+func NewSalesProducerHandler(stockRepo *repository.StockRepository, cfg *config.Config) *SalesProducerHandler {
 	return &SalesProducerHandler{
-		rabbitClient: rabbitClient,
-		cfg:          cfg,
+		stockRepo: stockRepo,
+		cfg:       cfg,
 	}
 }
 
@@ -107,46 +109,62 @@ func (h *SalesProducerHandler) CreateSales(c *gin.Context) {
 		merchantID = userID
 	}
 
-	// Construct message
-	salesDetails := make([]models.SalesDetailMessage, len(req.SalesDetails))
-	for i, d := range req.SalesDetails {
-		salesDetails[i] = models.SalesDetailMessage{
-			ProductID: d.ProductID,
-			Qty:       d.Qty,
-			Price:     d.Price,
-			Currency:  d.Currency,
-			StockID:   d.StockID,
-		}
-	}
-
-	msg := models.SalesMessage{
-		UserID:       userID,
-		MerchantID:   merchantID,
-		SalesDetails: salesDetails,
-	}
-
-	body, err := json.Marshal(msg)
+	// Generate UUIDs
+	salesID, err := uuid.NewV7()
 	if err != nil {
-		slog.Error("Failed to marshal message", "error", err)
+		slog.Error("Failed to generate sales UUID", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
-	// Publish to RabbitMQ
-	err = h.rabbitClient.Publish(h.cfg.SalesExchange, h.cfg.SalesRoutingKey, body)
+	// Create SalesMaster
+	salesMaster := &models.SalesMaster{
+		CID:         salesID.String(),
+		CCreatedBy:  userID,
+		CMerchantID: merchantID,
+		TsCreatedAt: time.Now(),
+	}
+
+	// Create SalesDetails
+	salesDetails := make([]models.SalesDetail, len(req.SalesDetails))
+	for i, d := range req.SalesDetails {
+		detailID, err := uuid.NewV7()
+		if err != nil {
+			slog.Error("Failed to generate sales detail UUID", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+
+		salesDetails[i] = models.SalesDetail{
+			CID:        detailID.String(),
+			CSalesID:   salesMaster.CID,
+			CProductID: d.ProductID,
+			IQty:       d.Qty,
+			DPrice:     d.Price,
+			CCurrency:  d.Currency,
+			CStockID:   d.StockID,
+		}
+	}
+
+	// Process sales transaction
+	err = h.stockRepo.ProcessSalesTransaction(c.Request.Context(), salesMaster, salesDetails)
 	if err != nil {
-		slog.Error("Failed to publish message", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue sales creation"})
+		slog.Error("Failed to process sales transaction", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create sales"})
 		return
 	}
 
-	slog.Info("Sales creation message published",
-		"user_id", userID,
+	slog.Info("Sales created successfully",
+		"sales_id", salesMaster.CID,
 		"merchant_id", merchantID,
 		"details_count", len(salesDetails))
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Sales creation request accepted",
+		"message": "Sales created successfully",
 		"status":  "success",
+		"data": gin.H{
+			"salesId":    salesMaster.CID,
+			"merchantId": merchantID,
+		},
 	})
 }

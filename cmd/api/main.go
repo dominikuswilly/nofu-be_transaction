@@ -74,7 +74,7 @@ func main() {
 	healthHandler := handler.NewHealthHandler(db)
 	stockHandler := handler.NewStockHandler(db, cfg)
 	stockProducerHandler := handler.NewStockProducerHandler(stockRepo, cfg)
-	salesProducerHandler := handler.NewSalesProducerHandler(rabbitClient, cfg)
+	salesProducerHandler := handler.NewSalesProducerHandler(stockRepo, cfg)
 
 	// Initialize server
 	srv := server.NewServer(cfg, healthHandler, stockHandler, stockProducerHandler, stockConsumer, salesConsumer, salesProducerHandler)
