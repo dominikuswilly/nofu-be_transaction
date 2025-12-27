@@ -276,3 +276,101 @@ func (r *StockRepository) ProcessSalesTransaction(ctx context.Context, salesMast
 
 	return nil
 }
+
+// SalesHistoryDetail represents aggregated sales data by product
+type SalesHistoryDetail struct {
+	ProductID     string
+	TotalQuantity int32
+	MerchantID    string
+	CreatedBy     string
+}
+
+// GetSalesHistory retrieves sales history aggregated by product for a given time period
+func (r *StockRepository) GetSalesHistory(ctx context.Context, merchantID string, timePeriod string) ([]SalesHistoryDetail, error) {
+	var query string
+
+	switch timePeriod {
+	case "today":
+		query = `
+			with CTE_SALES_MASTER as (
+				select t.c_id, t.c_merchant_id, t.ts_created_at, t.c_created_by 
+				from sales_master t 
+				where t.c_merchant_id = $1 AND DATE(t.ts_created_at) = CURRENT_DATE
+			)
+			select  
+				A.c_product_id, 
+				sum(A.i_qty) as total_quantity,
+				max(B.c_merchant_id) as c_merchant_id, 
+				max(B.c_created_by) as c_created_by
+			from sales_detail A
+			inner join CTE_SALES_MASTER B on B.c_id = A.c_sales_id 
+			where A.c_sales_id in (select A1.c_id from CTE_SALES_MASTER A1)
+			group by A.c_product_id
+		`
+	case "week":
+		query = `
+			with CTE_SALES_MASTER as (
+				select t.c_id, t.c_merchant_id, t.ts_created_at, t.c_created_by 
+				from sales_master t 
+				where t.c_merchant_id = $1 
+				AND t.ts_created_at >= CURRENT_DATE - INTERVAL '7 days'
+			)
+			select  
+				A.c_product_id, 
+				sum(A.i_qty) as total_quantity,
+				B.c_merchant_id, 
+				B.c_created_by
+			from sales_detail A
+			inner join CTE_SALES_MASTER B on B.c_id = A.c_sales_id 
+			where A.c_sales_id in (select A1.c_id from CTE_SALES_MASTER A1)
+			group by A.c_product_id, B.c_merchant_id, B.c_created_by
+		`
+	case "month":
+		query = `
+			with CTE_SALES_MASTER as (
+				select t.c_id, t.c_merchant_id, t.ts_created_at, t.c_created_by 
+				from sales_master t 
+				where t.c_merchant_id = $1 
+				AND DATE_TRUNC('month', t.ts_created_at) = DATE_TRUNC('month', CURRENT_DATE)
+			)
+			select  
+				A.c_product_id, 
+				sum(A.i_qty) as total_quantity,
+				B.c_merchant_id, 
+				B.c_created_by
+			from sales_detail A
+			inner join CTE_SALES_MASTER B on B.c_id = A.c_sales_id 
+			where A.c_sales_id in (select A1.c_id from CTE_SALES_MASTER A1)
+			group by A.c_product_id, B.c_merchant_id, B.c_created_by
+		`
+	default:
+		return nil, fmt.Errorf("invalid time period: %s", timePeriod)
+	}
+
+	slog.Info("Executing sales history query", "merchant_id", merchantID, "time_period", timePeriod)
+
+	rows, err := r.db.Query(ctx, query, merchantID)
+	if err != nil {
+		slog.Error("Failed to query sales history", "error", err, "merchant_id", merchantID, "time_period", timePeriod)
+		return nil, fmt.Errorf("failed to query sales history: %w", err)
+	}
+	defer rows.Close()
+
+	var salesHistory []SalesHistoryDetail
+	for rows.Next() {
+		var detail SalesHistoryDetail
+		if err := rows.Scan(&detail.ProductID, &detail.TotalQuantity, &detail.MerchantID, &detail.CreatedBy); err != nil {
+			slog.Error("Failed to scan sales history row", "error", err)
+			return nil, fmt.Errorf("failed to scan sales history row: %w", err)
+		}
+		salesHistory = append(salesHistory, detail)
+	}
+
+	if err := rows.Err(); err != nil {
+		slog.Error("Rows iteration error", "error", err)
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	slog.Info("Sales history query completed", "merchant_id", merchantID, "time_period", timePeriod, "row_count", len(salesHistory))
+	return salesHistory, nil
+}

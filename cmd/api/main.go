@@ -75,9 +75,10 @@ func main() {
 	stockHandler := handler.NewStockHandler(db, cfg)
 	stockProducerHandler := handler.NewStockProducerHandler(stockRepo, cfg)
 	salesProducerHandler := handler.NewSalesProducerHandler(stockRepo, cfg)
+	salesHistoryHandler := handler.NewSalesHistoryHandler(db, stockRepo, cfg)
 
 	// Initialize server
-	srv := server.NewServer(cfg, healthHandler, stockHandler, stockProducerHandler, stockConsumer, salesConsumer, salesProducerHandler)
+	srv := server.NewServer(cfg, healthHandler, stockHandler, stockProducerHandler, salesHistoryHandler, stockConsumer, salesConsumer, salesProducerHandler)
 
 	// Start server
 	if err := srv.Start(); err != nil {

@@ -27,7 +27,7 @@ type Server struct {
 	salesProducerHandler *handler.SalesProducerHandler
 }
 
-func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockProducerHandler *handler.StockProducerHandler, stockConsumer *consumer.StockConsumer, salesConsumer *consumer.SalesConsumer, salesProducerHandler *handler.SalesProducerHandler) *Server {
+func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockProducerHandler *handler.StockProducerHandler, salesHistoryHandler *handler.SalesHistoryHandler, stockConsumer *consumer.StockConsumer, salesConsumer *consumer.SalesConsumer, salesProducerHandler *handler.SalesProducerHandler) *Server {
 	router := gin.Default()
 
 	// Add custom logging middleware
@@ -46,6 +46,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 			protected.GET("/stock", stockHandler.GetStock)
 			protected.POST("/stock/create", stockProducerHandler.CreateStock)
 			protected.POST("/sales/create", salesProducerHandler.CreateSales)
+			protected.GET("/sales/history", salesHistoryHandler.GetSalesHistory)
 		}
 	}
 
