@@ -57,7 +57,19 @@ func (h *SalesHistoryHandler) fetchProductDetails() (map[string]Product, error) 
 
 	slog.Info("Fetching product details from external API", "url", productURL)
 
-	resp, err := http.Get(productURL)
+	// Create a new request instead of using http.Get to set headers
+	req, err := http.NewRequest("GET", productURL, nil)
+	if err != nil {
+		slog.Error("Failed to create request", "error", err, "url", productURL)
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add Content-Type and Accept headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		slog.Error("Failed to fetch products from API", "error", err, "url", productURL)
 		return nil, fmt.Errorf("failed to fetch products: %w", err)
