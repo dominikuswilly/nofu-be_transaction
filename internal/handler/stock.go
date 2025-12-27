@@ -6,7 +6,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -60,7 +59,7 @@ func (h *StockHandler) fetchProductDetails() (map[string]Product, error) {
 	// Create a map for quick lookup by product ID
 	productMap := make(map[string]Product)
 	for _, product := range products {
-		productMap[strconv.Itoa(product.ID)] = product
+		productMap[product.ID] = product
 	}
 
 	slog.Info("Successfully fetched products", "count", len(products))
@@ -92,7 +91,7 @@ type StockDetail struct {
 
 // Product represents the product data from external API
 type Product struct {
-	ID          int    `json:"id"`
+	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Price       int    `json:"price"`
