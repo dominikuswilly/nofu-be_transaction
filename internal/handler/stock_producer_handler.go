@@ -1,27 +1,28 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"nofu-be_transaction/internal/config"
 	"nofu-be_transaction/internal/models"
-	"nofu-be_transaction/pkg/rabbitmq"
+	"nofu-be_transaction/internal/repository"
 )
 
 type StockProducerHandler struct {
-	RabbitClient *rabbitmq.Client
-	Config       *config.Config
+	StockRepo *repository.StockRepository
+	Config    *config.Config
 }
 
-func NewStockProducerHandler(rabbitClient *rabbitmq.Client, cfg *config.Config) *StockProducerHandler {
+func NewStockProducerHandler(stockRepo *repository.StockRepository, cfg *config.Config) *StockProducerHandler {
 	return &StockProducerHandler{
-		RabbitClient: rabbitClient,
-		Config:       cfg,
+		StockRepo: stockRepo,
+		Config:    cfg,
 	}
 }
 
@@ -56,44 +57,72 @@ func (h *StockProducerHandler) CreateStock(c *gin.Context) {
 		"merchant_id", stockMsg.MerchantID,
 		"detail_count", len(stockMsg.StockDetails))
 
-	// Generate routing key: stock.merchant.{merchantId}.create
-	routingKey := fmt.Sprintf("stock.merchant.%s.create", stockMsg.MerchantID)
-
-	// Marshal message to JSON
-	messageBody, err := json.Marshal(stockMsg)
+	// Prepare StockMaster
+	stockID, err := uuid.NewV7()
 	if err != nil {
-		slog.Error("Failed to marshal message", "error", err)
+		slog.Error("Failed to generate stock UUID", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"responseCode":    "500",
-			"responseMessage": "Failed to process message",
+			"responseMessage": "Internal server error",
 		})
 		return
 	}
 
-	// Publish message to RabbitMQ
-	err = h.RabbitClient.Publish(h.Config.RabbitMQExchange, routingKey, messageBody)
+	stockMaster := &models.StockMaster{
+		CID:         stockID.String(),
+		CCreatedBy:  stockMsg.UserID, // Using UserID for created_by
+		CMerchantID: stockMsg.MerchantID,
+		CAdminID:    stockMsg.UserID, // Using UserID for admin_id for now, adjust if needed
+		TsCreatedAt: time.Now(),
+	}
+
+	// Prepare StockDetails
+	var stockDetails []models.StockDetail
+	for _, detailMsg := range stockMsg.StockDetails {
+		detailID, err := uuid.NewV7()
+		if err != nil {
+			slog.Error("Failed to generate detail UUID", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"responseCode":    "500",
+				"responseMessage": "Internal server error",
+			})
+			return
+		}
+
+		stockDetails = append(stockDetails, models.StockDetail{
+			CID:        detailID.String(),
+			CStockID:   stockMaster.CID,
+			CProductID: detailMsg.ProductID,
+			DPrice:     detailMsg.Price,
+			IQty:       detailMsg.Qty,
+			CCurrency:  detailMsg.Currency,
+		})
+	}
+
+	// Save to database using transaction
+	err = h.StockRepo.InsertStockTransaction(c.Request.Context(), stockMaster, stockDetails)
 	if err != nil {
-		slog.Error("Failed to publish message to RabbitMQ", "error", err, "routing_key", routingKey)
+		slog.Error("Failed to save stock transaction", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"responseCode":    "500",
-			"responseMessage": "Failed to publish message to queue",
+			"responseMessage": "Failed to save stock data",
+			"error":           err.Error(),
 		})
 		return
 	}
 
-	slog.Info("Stock message published successfully",
-		"routing_key", routingKey,
+	slog.Info("Stock transaction saved successfully",
+		"stock_id", stockMaster.CID,
 		"merchant_id", stockMsg.MerchantID,
-		"detail_count", len(stockMsg.StockDetails))
+		"detail_count", len(stockDetails))
 
 	c.JSON(http.StatusOK, gin.H{
 		"responseCode":    "200",
-		"responseMessage": "Stock message published successfully",
+		"responseMessage": "Stock created successfully",
 		"data": gin.H{
-			"routingKey":  routingKey,
-			"exchange":    h.Config.RabbitMQExchange,
+			"stockId":     stockMaster.CID,
 			"merchantId":  stockMsg.MerchantID,
-			"detailCount": len(stockMsg.StockDetails),
+			"detailCount": len(stockDetails),
 		},
 	})
 }
