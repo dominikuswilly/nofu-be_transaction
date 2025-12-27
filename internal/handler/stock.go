@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -245,6 +247,11 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 	}
 
 	slog.Info("Stock query completed", "merchant_id", merchantID, "row_count", len(stockDetails), "first_row", firstRow)
+
+	// Sort by product name (case-insensitive)
+	sort.Slice(stockDetails, func(i, j int) bool {
+		return strings.ToLower(stockDetails[i].ProductName) < strings.ToLower(stockDetails[j].ProductName)
+	})
 
 	response := StockResponse{
 		ResponseCode:    "200",
