@@ -278,8 +278,13 @@ func (h *SalesHistoryHandler) GetSalesHistoryTodayGrouped(c *gin.Context) {
 	// Extract timezone from context if set by middleware
 	if loc, exists := c.Get("timezone"); exists {
 		if l, ok := loc.(*time.Location); ok {
+			slog.Info("Handler passing timezone to context", "location", l.String())
 			ctx = context.WithValue(ctx, "timezone", l)
+		} else {
+			slog.Warn("Timezone found in Gin context but not of type *time.Location", "type", fmt.Sprintf("%T", loc))
 		}
+	} else {
+		slog.Warn("Timezone not found in Gin context")
 	}
 
 	slog.Info("GetSalesHistoryTodayGrouped called")

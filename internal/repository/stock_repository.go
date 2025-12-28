@@ -422,6 +422,7 @@ func (r *StockRepository) GetSalesHistoryTodayGrouped(ctx context.Context, merch
 			loc = l
 		}
 	}
+	slog.Info("Repository using timezone", "loc", loc.String())
 
 	for rows.Next() {
 		var detail SalesGroupedDetail
@@ -430,6 +431,7 @@ func (r *StockRepository) GetSalesHistoryTodayGrouped(ctx context.Context, merch
 			slog.Error("Failed to scan grouped sales history row", "error", err)
 			return nil, fmt.Errorf("failed to scan grouped sales history row: %w", err)
 		}
+		slog.Debug("Raw bucket from DB", "time", minuteBucket.String(), "product_id", detail.ProductID)
 		detail.MinuteBucket = minuteBucket.In(loc).Format("15:04") // Format as hh:mm in requested timezone
 		results = append(results, detail)
 	}

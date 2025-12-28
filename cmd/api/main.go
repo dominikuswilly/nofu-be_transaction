@@ -13,6 +13,8 @@ import (
 	"nofu-be_transaction/pkg/logger"
 	"nofu-be_transaction/pkg/postgres"
 	"nofu-be_transaction/pkg/rabbitmq"
+
+	_ "time/tzdata"
 )
 
 func main() {
