@@ -130,7 +130,7 @@ func (h *DefectHandler) CreateDefect(c *gin.Context) {
 		CID:         defectID.String(),
 		CCreatedBy:  userID,
 		TsCreatedAt: time.Now(),
-		CStatus:     "DEFECTIVE", // Default status
+		CStatus:     "PENDING", // Default status
 		CMerchantID: merchantID,
 	}
 
