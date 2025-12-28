@@ -51,6 +51,27 @@ type SalesDetailHistory struct {
 	ProductImage  string `json:"productImage,omitempty"`
 }
 
+type SalesHistoryGroupedResponse struct {
+	ResponseCode    string                  `json:"responseCode"`
+	ResponseMessage string                  `json:"responseMessage"`
+	Data            SalesHistoryGroupedData `json:"data"`
+}
+
+type SalesHistoryGroupedData struct {
+	MerchantID  string                      `json:"merchantId"`
+	SalesDetail []SalesGroupedDetailHistory `json:"salesDetail"`
+}
+
+type SalesGroupedDetailHistory struct {
+	ProductID     string `json:"productId"`
+	TotalQuantity int32  `json:"totalQuantity"`
+	MerchantID    string `json:"merchantId"`
+	CreatedBy     string `json:"createdBy"`
+	MinuteBucket  string `json:"minuteBucket"`
+	ProductName   string `json:"productName,omitempty"`
+	ProductImage  string `json:"productImage,omitempty"`
+}
+
 // fetchProductDetails fetches product information from the external product API
 func (h *SalesHistoryHandler) fetchProductDetails() (map[string]Product, error) {
 	productURL := h.Config.ProductServiceURL + "/products"
@@ -246,5 +267,133 @@ func (h *SalesHistoryHandler) GetSalesHistory(c *gin.Context) {
 		},
 	}
 
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *SalesHistoryHandler) GetSalesHistoryTodayGrouped(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	slog.Info("GetSalesHistoryTodayGrouped called")
+
+	// 1. Extract info from Authorization header (manual parsing fallback)
+	authHeader := c.GetHeader("Authorization")
+	userID := ""
+	if authHeader != "" {
+		tokenString := ""
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		} else {
+			tokenString = authHeader
+		}
+
+		parts := strings.Split(tokenString, ".")
+		if len(parts) == 3 {
+			payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+			if err == nil {
+				var claims map[string]interface{}
+				if err := json.Unmarshal(payload, &claims); err == nil {
+					if sub, ok := claims["sub"].(string); ok {
+						userID = sub
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Extract from context (set by AuthMiddleware)
+	merchantID := ""
+
+	// Try merchant_id from context
+	if val, exists := c.Get("merchant_id"); exists {
+		if strVal, ok := val.(string); ok {
+			merchantID = strVal
+		} else if floatVal, ok := val.(float64); ok {
+			merchantID = fmt.Sprintf("%.0f", floatVal)
+		}
+	}
+
+	if merchantID == "" {
+		if val, exists := c.Get("merchantId"); exists {
+			if strVal, ok := val.(string); ok {
+				merchantID = strVal
+			} else if floatVal, ok := val.(float64); ok {
+				merchantID = fmt.Sprintf("%.0f", floatVal)
+			}
+		}
+	}
+
+	// Final fallback to userID (from token sub claim)
+	if merchantID == "" {
+		merchantID = userID
+	}
+
+	if merchantID == "" {
+		slog.Error("merchant_id not found in context or token")
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"responseCode":    "401",
+			"responseMessage": "merchant_id not found in token",
+		})
+		return
+	}
+
+	slog.Info("Fetching grouped sales history", "merchant_id", merchantID)
+
+	// Get grouped sales history from repository
+	repoSalesDetails, err := h.StockRepo.GetSalesHistoryTodayGrouped(ctx, merchantID)
+	if err != nil {
+		slog.Error("Failed to get grouped sales history", "error", err, "merchant_id", merchantID)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "internal server error",
+		})
+		return
+	}
+
+	// Fetch product details from external API
+	productMap, err := h.fetchProductDetails()
+	if err != nil {
+		slog.Warn("Failed to fetch product details, continuing without product info", "error", err)
+		productMap = make(map[string]Product)
+	}
+
+	// Convert repository type to response type and populate product details
+	salesDetails := make([]SalesGroupedDetailHistory, len(repoSalesDetails))
+	for i, detail := range repoSalesDetails {
+		salesDetails[i] = SalesGroupedDetailHistory{
+			ProductID:     detail.ProductID,
+			TotalQuantity: detail.TotalQuantity,
+			MerchantID:    detail.MerchantID,
+			CreatedBy:     detail.CreatedBy,
+			MinuteBucket:  detail.MinuteBucket,
+		}
+
+		// Populate product name and image
+		if product, found := productMap[detail.ProductID]; found {
+			salesDetails[i].ProductName = product.Name
+			salesDetails[i].ProductImage = product.URL
+		} else {
+			slog.Warn("Product not found in product service", "product_id", detail.ProductID)
+		}
+	}
+
+	// Sort by minute bucket (descending) then by product name
+	sort.Slice(salesDetails, func(i, j int) bool {
+		if salesDetails[i].MinuteBucket != salesDetails[j].MinuteBucket {
+			return salesDetails[i].MinuteBucket > salesDetails[j].MinuteBucket
+		}
+		return strings.ToLower(salesDetails[i].ProductName) < strings.ToLower(salesDetails[j].ProductName)
+	})
+
+	response := SalesHistoryGroupedResponse{
+		ResponseCode:    "200",
+		ResponseMessage: "success",
+		Data: SalesHistoryGroupedData{
+			MerchantID:  merchantID,
+			SalesDetail: salesDetails,
+		},
+	}
+
+	// Set Content-Type header explicitly (as requested in previous conversations)
+	c.Header("Content-Type", "application/json")
 	c.JSON(http.StatusOK, response)
 }
