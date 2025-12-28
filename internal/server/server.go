@@ -49,7 +49,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 			protected.GET("/stock", stockHandler.GetStock)
 			protected.POST("/stock/create", stockProducerHandler.CreateStock)
 			protected.POST("/sales/create", salesProducerHandler.CreateSales)
-			protected.POST("/sales/defect", defectHandler.CreateDefect)
+			protected.POST("/sales/defect/create", defectHandler.CreateDefect)
 			protected.GET("/sales/history", salesHistoryHandler.GetSalesHistory)
 			protected.GET("/sales/history/today-grouped", salesHistoryHandler.GetSalesHistoryTodayGrouped)
 		}
