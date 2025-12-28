@@ -70,3 +70,43 @@ type SalesDetailMessage struct {
 	Currency      string  `json:"currency"`
 	StockDetailID string  `json:"stockDetailId"`
 }
+
+// SalesDefectMaster represents the sales_defect_master table
+type SalesDefectMaster struct {
+	CID         string    // c_id - UUID v7
+	CCreatedBy  string    // c_created_by - based on authorization claims.sub
+	TsCreatedAt time.Time // ts_created_at - auto-generated
+	CUpdatedBy  string    // c_updated_by
+	TsUpdatedAt time.Time // ts_updated_at
+	CDeletedBy  string    // c_deleted_by
+	TsDeletedAt time.Time // ts_deleted_at
+	CStatus     string    // c_status - public.status_sales_defective
+	CMerchantID string    // c_merchant_id - added as requested
+}
+
+// SalesDefectDetail represents the sales_defect_detail table
+type SalesDefectDetail struct {
+	CID            string  // c_id - UUID v7
+	CSalesDefectID string  // c_sales_defect_id - foreign key to sales_defect_master.c_id
+	CProductID     string  // c_product_id
+	IQty           int32   // i_qty
+	DPrice         float64 // d_price
+	CCurrency      string  // c_currency
+	CStockDetailID string  // c_stock_detail_id
+}
+
+// SalesDefectMessage represents the incoming defect message
+type SalesDefectMessage struct {
+	UserID        string                     `json:"userId"`
+	MerchantID    string                     `json:"merchantId"`
+	DefectDetails []SalesDefectDetailMessage `json:"defectDetails"`
+}
+
+// SalesDefectDetailMessage represents individual defect items in the message
+type SalesDefectDetailMessage struct {
+	ProductID     string  `json:"productId"`
+	Qty           int32   `json:"qty"`
+	Price         float64 `json:"price"`
+	Currency      string  `json:"currency"`
+	StockDetailID string  `json:"stockDetailId"`
+}

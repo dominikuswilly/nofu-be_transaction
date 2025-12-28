@@ -25,9 +25,10 @@ type Server struct {
 	stockConsumer        *consumer.StockConsumer
 	salesConsumer        *consumer.SalesConsumer
 	salesProducerHandler *handler.SalesProducerHandler
+	defectHandler        *handler.DefectHandler
 }
 
-func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockProducerHandler *handler.StockProducerHandler, salesHistoryHandler *handler.SalesHistoryHandler, stockConsumer *consumer.StockConsumer, salesConsumer *consumer.SalesConsumer, salesProducerHandler *handler.SalesProducerHandler) *Server {
+func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockProducerHandler *handler.StockProducerHandler, salesHistoryHandler *handler.SalesHistoryHandler, stockConsumer *consumer.StockConsumer, salesConsumer *consumer.SalesConsumer, salesProducerHandler *handler.SalesProducerHandler, defectHandler *handler.DefectHandler) *Server {
 	router := gin.Default()
 
 	// Add custom logging middleware
@@ -48,6 +49,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 			protected.GET("/stock", stockHandler.GetStock)
 			protected.POST("/stock/create", stockProducerHandler.CreateStock)
 			protected.POST("/sales/create", salesProducerHandler.CreateSales)
+			protected.POST("/sales/defect", defectHandler.CreateDefect)
 			protected.GET("/sales/history", salesHistoryHandler.GetSalesHistory)
 			protected.GET("/sales/history/today-grouped", salesHistoryHandler.GetSalesHistoryTodayGrouped)
 		}
@@ -60,6 +62,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 		stockConsumer:        stockConsumer,
 		salesConsumer:        salesConsumer,
 		salesProducerHandler: salesProducerHandler,
+		defectHandler:        defectHandler,
 		server: &http.Server{
 			Addr:    ":" + cfg.ServerPort,
 			Handler: router,

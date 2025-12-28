@@ -444,3 +444,108 @@ func (r *StockRepository) GetSalesHistoryTodayGrouped(ctx context.Context, merch
 	slog.Info("Grouped sales history query completed", "merchant_id", merchantID, "row_count", len(results))
 	return results, nil
 }
+
+// InsertSalesDefectMaster inserts a new sales defect master record
+func (r *StockRepository) InsertSalesDefectMaster(ctx context.Context, tx pgx.Tx, defectMaster *models.SalesDefectMaster) error {
+	query := `
+		INSERT INTO sales_defect_master (c_id, c_created_by, ts_created_at, c_status, c_merchant_id)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+
+	_, err := tx.Exec(ctx, query,
+		defectMaster.CID,
+		defectMaster.CCreatedBy,
+		defectMaster.TsCreatedAt,
+		defectMaster.CStatus,
+		defectMaster.CMerchantID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert sales defect master: %w", err)
+	}
+
+	slog.Info("Inserted sales defect master", "defect_id", defectMaster.CID, "merchant_id", defectMaster.CMerchantID)
+	return nil
+}
+
+// InsertSalesDefectDetails inserts multiple sales defect detail records
+func (r *StockRepository) InsertSalesDefectDetails(ctx context.Context, tx pgx.Tx, defectDetails []models.SalesDefectDetail) error {
+	if len(defectDetails) == 0 {
+		return nil
+	}
+
+	batch := &pgx.Batch{}
+	query := `
+		INSERT INTO sales_defect_detail (c_id, c_sales_defect_id, c_product_id, i_qty, d_price, c_currency, c_stock_detail_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
+
+	for _, detail := range defectDetails {
+		batch.Queue(query,
+			detail.CID,
+			detail.CSalesDefectID,
+			detail.CProductID,
+			detail.IQty,
+			detail.DPrice,
+			detail.CCurrency,
+			detail.CStockDetailID,
+		)
+	}
+
+	br := tx.SendBatch(ctx, batch)
+
+	// Execute all batched queries
+	for i := 0; i < len(defectDetails); i++ {
+		_, err := br.Exec()
+		if err != nil {
+			br.Close()
+			return fmt.Errorf("failed to insert sales defect detail at index %d: %w", i, err)
+		}
+	}
+	br.Close()
+
+	slog.Info("Inserted sales defect details", "count", len(defectDetails))
+	return nil
+}
+
+// ProcessDefectTransaction processes a defect transaction: reduces stock and inserts defect records
+func (r *StockRepository) ProcessDefectTransaction(ctx context.Context, defectMaster *models.SalesDefectMaster, defectDetails []models.SalesDefectDetail) error {
+	// Begin transaction
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) // Rollback if not committed
+
+	// Reduce stock for each product and update stock ID in defect details
+	for i := range defectDetails {
+		stockDetailID, err := r.ReduceStockByProductID(ctx, tx, defectDetails[i].CProductID, defectDetails[i].IQty, defectDetails[i].CStockDetailID)
+		if err != nil {
+			return err
+		}
+		// Update the CStockDetailID with the actual stock_detail c_id (though it should already be correct, following ProcessSalesTransaction pattern)
+		defectDetails[i].CStockDetailID = stockDetailID
+	}
+
+	// Insert sales defect master
+	if err := r.InsertSalesDefectMaster(ctx, tx, defectMaster); err != nil {
+		return err
+	}
+
+	// Insert sales defect details
+	if err := r.InsertSalesDefectDetails(ctx, tx, defectDetails); err != nil {
+		return err
+	}
+
+	// Commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	slog.Info("Defect transaction completed successfully",
+		"defect_id", defectMaster.CID,
+		"merchant_id", defectMaster.CMerchantID,
+		"detail_count", len(defectDetails))
+
+	return nil
+}
