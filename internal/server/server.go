@@ -32,6 +32,8 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 
 	// Add custom logging middleware
 	router.Use(middleware.RequestLogger())
+	// Set timezone middleware
+	router.Use(middleware.TimezoneMiddleware(cfg.DBTimezone))
 
 	// Group routes under /api/transaction
 	api := router.Group("/api/transaction")

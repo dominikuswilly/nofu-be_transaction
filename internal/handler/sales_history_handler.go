@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -272,6 +274,13 @@ func (h *SalesHistoryHandler) GetSalesHistory(c *gin.Context) {
 
 func (h *SalesHistoryHandler) GetSalesHistoryTodayGrouped(c *gin.Context) {
 	ctx := c.Request.Context()
+
+	// Extract timezone from context if set by middleware
+	if loc, exists := c.Get("timezone"); exists {
+		if l, ok := loc.(*time.Location); ok {
+			ctx = context.WithValue(ctx, "timezone", l)
+		}
+	}
 
 	slog.Info("GetSalesHistoryTodayGrouped called")
 
