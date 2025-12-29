@@ -612,3 +612,56 @@ func (r *StockRepository) GetSalesDefectDetails(ctx context.Context, merchantID 
 	slog.Info("Get aggregated sales defect details query completed", "merchant_id", merchantID, "row_count", len(results))
 	return results, nil
 }
+
+// DeleteSalesDefectDetail soft deletes sales defect details and re-adds the quantity to stock_detail
+func (r *StockRepository) DeleteSalesDefectDetail(ctx context.Context, productID string, merchantID string, userID string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Soft delete sales_defect_detail and re-add stock_detail i_qty
+	query := `
+		WITH updated_details AS (
+			UPDATE sales_defect_detail sdd
+			SET ts_deleted_at = CURRENT_TIMESTAMP,
+				c_deleted_by = $1
+			FROM sales_defect_master sdm
+			WHERE sdd.c_sales_defect_id = sdm.c_id
+			  AND sdd.c_product_id = $2
+			  AND sdm.c_merchant_id = $3
+			  AND sdd.ts_deleted_at IS NULL
+			  AND sdd.ts_created_at::date = CURRENT_DATE
+			RETURNING sdd.c_stock_detail_id, sdd.i_qty
+		)
+		UPDATE stock_detail sd
+		SET i_qty = sd.i_qty + ud.total_qty
+		FROM (
+			SELECT c_stock_detail_id, SUM(i_qty) as total_qty
+			FROM updated_details
+			GROUP BY c_stock_detail_id
+		) ud
+		WHERE sd.c_id = ud.c_stock_detail_id
+	`
+
+	commandTag, err := tx.Exec(ctx, query, userID, productID, merchantID)
+	if err != nil {
+		return fmt.Errorf("failed to soft delete and re-add stock: %w", err)
+	}
+
+	if commandTag.RowsAffected() == 0 {
+		slog.Warn("No records found to delete for sales defect", "product_id", productID, "merchant_id", merchantID)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	slog.Info("Soft deleted sales defect details and re-added stock",
+		"product_id", productID,
+		"merchant_id", merchantID,
+		"deleted_by", userID,
+		"rows_affected", commandTag.RowsAffected())
+	return nil
+}

@@ -363,3 +363,91 @@ func (h *DefectHandler) GetSalesDefect(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
+
+func (h *DefectHandler) DeleteSalesDefect(c *gin.Context) {
+	productID := c.Param("productId")
+	if productID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Product ID is required"})
+		return
+	}
+
+	// Extract claims from Authorization header (same logic as CreateDefect)
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		slog.Error("Missing Authorization header")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
+		return
+	}
+
+	// Remove "Bearer " prefix
+	tokenString := ""
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		tokenString = authHeader[7:]
+	} else {
+		tokenString = authHeader
+	}
+
+	// Parse JWT manually (assuming no middleware sets it yet or following existing pattern)
+	parts := strings.Split(tokenString, ".")
+	if len(parts) != 3 {
+		slog.Error("Invalid token format")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token format"})
+		return
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		slog.Error("Failed to decode token payload", "error", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token payload"})
+		return
+	}
+
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		slog.Error("Failed to unmarshal token payload", "error", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+		return
+	}
+
+	// Get sub from claims
+	var userID string
+	if sub, ok := claims["sub"].(string); ok {
+		userID = sub
+	}
+
+	if userID == "" {
+		slog.Error("User ID (sub) not found in token claims")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in token"})
+		return
+	}
+
+	// Get merchant_id from claims or context
+	merchantID := c.GetString("merchant_id")
+	if merchantID == "" {
+		merchantID = c.GetString("merchantId")
+	}
+	if merchantID == "" {
+		if mID, ok := claims["merchant_id"].(string); ok {
+			merchantID = mID
+		} else if mID, ok := claims["merchantId"].(string); ok {
+			merchantID = mID
+		}
+	}
+	if merchantID == "" {
+		merchantID = userID
+	}
+
+	slog.Info("Processing soft delete for sales defect", "product_id", productID, "merchant_id", merchantID, "user_id", userID)
+
+	err = h.stockRepo.DeleteSalesDefectDetail(c.Request.Context(), productID, merchantID, userID)
+	if err != nil {
+		slog.Error("Failed to delete sales defect", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete sales defect record"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Sales defect record deleted and stock re-added successfully",
+		"status":  "success",
+	})
+}

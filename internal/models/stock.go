@@ -85,13 +85,16 @@ type SalesDefectMaster struct {
 
 // SalesDefectDetail represents the sales_defect_detail table
 type SalesDefectDetail struct {
-	CID            string  // c_id - UUID v7
-	CSalesDefectID string  // c_sales_defect_id - foreign key to sales_defect_master.c_id
-	CProductID     string  // c_product_id
-	IQty           int32   // i_qty
-	DPrice         float64 // d_price
-	CCurrency      string  // c_currency
-	CStockDetailID string  // c_stock_detail_id
+	CID            string    // c_id - UUID v7
+	CSalesDefectID string    // c_sales_defect_id - foreign key to sales_defect_master.c_id
+	CProductID     string    // c_product_id
+	IQty           int32     // i_qty
+	DPrice         float64   // d_price
+	CCurrency      string    // c_currency
+	CStockDetailID string    // c_stock_detail_id
+	TsCreatedAt    time.Time // ts_created_at
+	TsDeletedAt    time.Time // ts_deleted_at
+	CDeletedBy     string    // c_deleted_by
 }
 
 // SalesDefectMessage represents the incoming defect message

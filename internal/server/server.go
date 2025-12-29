@@ -51,6 +51,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 			protected.POST("/sales/create", salesProducerHandler.CreateSales)
 			protected.POST("/sales/defect/create", defectHandler.CreateDefect)
 			protected.GET("/sales/defect", defectHandler.GetSalesDefect)
+			protected.DELETE("/sales/defect/:productId", defectHandler.DeleteSalesDefect)
 			protected.GET("/sales/history", salesHistoryHandler.GetSalesHistory)
 			protected.GET("/sales/history/today-grouped", salesHistoryHandler.GetSalesHistoryTodayGrouped)
 		}
