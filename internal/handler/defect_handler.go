@@ -180,14 +180,11 @@ func (h *DefectHandler) CreateDefect(c *gin.Context) {
 
 // Response models
 type SalesDefectDetailData struct {
-	ID            string  `json:"id"`
-	SalesDefectID string  `json:"salesDefectId"`
+	ProductID     string  `json:"productId"`
 	Qty           int32   `json:"qty"`
-	Price         float64 `json:"price"`
+	SubPrice      float64 `json:"subPrice"`
+	SubtotalPrice float64 `json:"subtotalPrice"`
 	Currency      string  `json:"currency"`
-	StockDetailID string  `json:"stockDetailId"`
-	CreatedBy     string  `json:"createdBy"`
-	CreatedAt     string  `json:"createdAt"`
 }
 
 type SalesDefectResponse struct {
@@ -252,12 +249,12 @@ func (h *DefectHandler) GetSalesDefect(c *gin.Context) {
 		return
 	}
 
-	slog.Info("Fetching sales defect details", "merchant_id", merchantID)
+	slog.Info("Fetching aggregated sales defect details", "merchant_id", merchantID)
 
 	// Get data from repository
 	repoDetails, err := h.stockRepo.GetSalesDefectDetails(ctx, merchantID)
 	if err != nil {
-		slog.Error("Failed to fetch sales defect details", "error", err, "merchant_id", merchantID)
+		slog.Error("Failed to fetch aggregated sales defect details", "error", err, "merchant_id", merchantID)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"responseCode":    "500",
 			"responseMessage": "Internal server error",
@@ -269,14 +266,11 @@ func (h *DefectHandler) GetSalesDefect(c *gin.Context) {
 	data := make([]SalesDefectDetailData, len(repoDetails))
 	for i, d := range repoDetails {
 		data[i] = SalesDefectDetailData{
-			ID:            d.ID,
-			SalesDefectID: d.SalesDefectID,
+			ProductID:     d.ProductID,
 			Qty:           d.Qty,
-			Price:         d.Price,
+			SubPrice:      d.SubPrice,
+			SubtotalPrice: d.SubtotalPrice,
 			Currency:      d.Currency,
-			StockDetailID: d.StockDetailID,
-			CreatedBy:     d.CreatedBy,
-			CreatedAt:     d.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
 	}
 
