@@ -80,7 +80,6 @@ type SalesDefectMaster struct {
 	TsUpdatedAt time.Time // ts_updated_at
 	CDeletedBy  string    // c_deleted_by
 	TsDeletedAt time.Time // ts_deleted_at
-	CStatus     string    // c_status - public.status_sales_defective
 	CMerchantID string    // c_merchant_id - added as requested
 }
 

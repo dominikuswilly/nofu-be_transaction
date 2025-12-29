@@ -448,15 +448,14 @@ func (r *StockRepository) GetSalesHistoryTodayGrouped(ctx context.Context, merch
 // InsertSalesDefectMaster inserts a new sales defect master record
 func (r *StockRepository) InsertSalesDefectMaster(ctx context.Context, tx pgx.Tx, defectMaster *models.SalesDefectMaster) error {
 	query := `
-		INSERT INTO sales_defect_master (c_id, c_created_by, ts_created_at, c_status, c_merchant_id)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO sales_defect_master (c_id, c_created_by, ts_created_at, c_merchant_id)
+		VALUES ($1, $2, $3, $4)
 	`
 
 	_, err := tx.Exec(ctx, query,
 		defectMaster.CID,
 		defectMaster.CCreatedBy,
 		defectMaster.TsCreatedAt,
-		defectMaster.CStatus,
 		defectMaster.CMerchantID,
 	)
 
