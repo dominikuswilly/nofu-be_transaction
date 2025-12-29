@@ -1,6 +1,8 @@
+```
 package handler
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"log/slog"
@@ -175,4 +177,115 @@ func (h *DefectHandler) CreateDefect(c *gin.Context) {
 			"merchantId": merchantID,
 		},
 	})
+}
+
+// Response models
+type SalesDefectDetailData struct {
+	ID            string  `json:"id"`
+	SalesDefectID string  `json:"salesDefectId"`
+	Qty           int32   `json:"qty"`
+	Price         float64 `json:"price"`
+	Currency      string  `json:"currency"`
+	StockDetailID string  `json:"stockDetailId"`
+	CreatedBy     string  `json:"createdBy"`
+	CreatedAt     string  `json:"createdAt"`
+}
+
+type SalesDefectResponse struct {
+	ResponseCode    string                  `json:"responseCode"`
+	ResponseMessage string                  `json:"responseMessage"`
+	Data            []SalesDefectDetailData `json:"data"`
+}
+
+func (h *DefectHandler) GetSalesDefect(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// Extract timezone from context if set by middleware
+	if loc, exists := c.Get("timezone"); exists {
+		if l, ok := loc.(*time.Location); ok {
+			slog.Info("Handler passing timezone to context", "location", l.String())
+			ctx = context.WithValue(ctx, "timezone", l)
+		}
+	}
+
+	// Extract merchant_id from context (set by AuthMiddleware)
+	merchantID := c.GetString("merchant_id")
+	if merchantID == "" {
+		merchantID = c.GetString("merchantId")
+	}
+
+	// Fallback to manual token parsing if not in context
+	if merchantID == "" {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			tokenString := ""
+			if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+				tokenString = authHeader[7:]
+			} else {
+				tokenString = authHeader
+			}
+
+			parts := strings.Split(tokenString, ".")
+			if len(parts) == 3 {
+				payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+				if err == nil {
+					var claims map[string]interface{}
+					if err := json.Unmarshal(payload, &claims); err == nil {
+						if mID, ok := claims["merchant_id"].(string); ok {
+							merchantID = mID
+						} else if mID, ok := claims["merchantId"].(string); ok {
+							merchantID = mID
+						} else if sub, ok := claims["sub"].(string); ok {
+							merchantID = sub
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if merchantID == "" {
+		slog.Error("Merchant ID not found in context or token")
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"responseCode":    "401",
+			"responseMessage": "Unauthorized: Merchant ID not found",
+		})
+		return
+	}
+
+	slog.Info("Fetching sales defect details", "merchant_id", merchantID)
+
+	// Get data from repository
+	repoDetails, err := h.stockRepo.GetSalesDefectDetails(ctx, merchantID)
+	if err != nil {
+		slog.Error("Failed to fetch sales defect details", "error", err, "merchant_id", merchantID)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Internal server error",
+		})
+		return
+	}
+
+	// Format response data
+	data := make([]SalesDefectDetailData, len(repoDetails))
+	for i, d := range repoDetails {
+		data[i] = SalesDefectDetailData{
+			ID:            d.ID,
+			SalesDefectID: d.SalesDefectID,
+			Qty:           d.Qty,
+			Price:         d.Price,
+			Currency:      d.Currency,
+			StockDetailID: d.StockDetailID,
+			CreatedBy:     d.CreatedBy,
+			CreatedAt:     d.CreatedAt.Format("2006-01-02 15:04:05"),
+		}
+	}
+
+	response := SalesDefectResponse{
+		ResponseCode:    "200",
+		ResponseMessage: "success",
+		Data:            data,
+	}
+
+	c.JSON(http.StatusOK, response)
 }

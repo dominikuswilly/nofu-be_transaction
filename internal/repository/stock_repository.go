@@ -548,3 +548,69 @@ func (r *StockRepository) ProcessDefectTransaction(ctx context.Context, defectMa
 
 	return nil
 }
+
+// SalesDefectDetailInfo represents detailed sales defect data
+type SalesDefectDetailInfo struct {
+	ID            string
+	ProductID     string
+	Currency      string
+	Price         float64
+	Qty           int32
+	SalesDefectID string
+	StockDetailID string
+	CreatedAt     time.Time
+	CreatedBy     string
+}
+
+// GetSalesDefectDetails retrieves sales defect details for today for a specific merchant
+func (r *StockRepository) GetSalesDefectDetails(ctx context.Context, merchantID string) ([]SalesDefectDetailInfo, error) {
+	query := `
+		with CTE_SALES_DEFECT_MASTER as (
+			select t.c_id, t.c_merchant_id , t.ts_created_at , t.c_created_by 
+			from sales_defect_master t 
+			where t.c_merchant_id = $1 AND DATE(t.ts_created_at) = CURRENT_DATE
+		)
+		select sdd.c_id , sdd.c_product_id , sdd.c_currency , sdd.d_price , sdd.i_qty , sdd.c_sales_defect_id , sdd.c_stock_detail_id , sdd.ts_created_at , A.c_created_by
+		from sales_defect_detail sdd
+		inner join CTE_SALES_DEFECT_MASTER A on A.c_id = sdd.c_sales_defect_id 
+		where sdd.ts_deleted_at is null and sdd.c_deleted_by is null AND sdd.ts_created_at::date = CURRENT_DATE
+	`
+
+	slog.Info("Executing get sales defect details query", "merchant_id", merchantID)
+
+	rows, err := r.db.Query(ctx, query, merchantID)
+	if err != nil {
+		slog.Error("Failed to query sales defect details", "error", err, "merchant_id", merchantID)
+		return nil, fmt.Errorf("failed to query sales defect details: %w", err)
+	}
+	defer rows.Close()
+
+	var results []SalesDefectDetailInfo
+	for rows.Next() {
+		var info SalesDefectDetailInfo
+		err := rows.Scan(
+			&info.ID,
+			&info.ProductID,
+			&info.Currency,
+			&info.Price,
+			&info.Qty,
+			&info.SalesDefectID,
+			&info.StockDetailID,
+			&info.CreatedAt,
+			&info.CreatedBy,
+		)
+		if err != nil {
+			slog.Error("Failed to scan sales defect detail row", "error", err)
+			return nil, fmt.Errorf("failed to scan sales defect detail row: %w", err)
+		}
+		results = append(results, info)
+	}
+
+	if err := rows.Err(); err != nil {
+		slog.Error("Rows iteration error in get sales defect details", "error", err)
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	slog.Info("Get sales defect details query completed", "merchant_id", merchantID, "row_count", len(results))
+	return results, nil
+}
