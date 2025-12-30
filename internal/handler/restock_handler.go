@@ -29,8 +29,8 @@ type RestockItemRequest struct {
 }
 
 type CreateRestockRequest struct {
-	Longitude float64              `json:"longitude"`
-	Latitude  float64              `json:"latitude"`
+	Longitude float64              `json:"longitude" binding:"required"`
+	Latitude  float64              `json:"latitude" binding:"required"`
 	Items     []RestockItemRequest `json:"item" binding:"required,dive"`
 }
 
