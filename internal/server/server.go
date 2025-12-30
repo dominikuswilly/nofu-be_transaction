@@ -26,9 +26,10 @@ type Server struct {
 	salesConsumer        *consumer.SalesConsumer
 	salesProducerHandler *handler.SalesProducerHandler
 	defectHandler        *handler.DefectHandler
+	restockHandler       *handler.RestockHandler
 }
 
-func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockProducerHandler *handler.StockProducerHandler, salesHistoryHandler *handler.SalesHistoryHandler, stockConsumer *consumer.StockConsumer, salesConsumer *consumer.SalesConsumer, salesProducerHandler *handler.SalesProducerHandler, defectHandler *handler.DefectHandler) *Server {
+func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHandler *handler.StockHandler, stockProducerHandler *handler.StockProducerHandler, salesHistoryHandler *handler.SalesHistoryHandler, stockConsumer *consumer.StockConsumer, salesConsumer *consumer.SalesConsumer, salesProducerHandler *handler.SalesProducerHandler, defectHandler *handler.DefectHandler, restockHandler *handler.RestockHandler) *Server {
 	router := gin.Default()
 
 	// Add custom logging middleware
@@ -54,6 +55,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 			protected.DELETE("/sales/defect/:productId", defectHandler.DeleteSalesDefect)
 			protected.GET("/sales/history", salesHistoryHandler.GetSalesHistory)
 			protected.GET("/sales/history/today-grouped", salesHistoryHandler.GetSalesHistoryTodayGrouped)
+			protected.POST("/restock/create", restockHandler.CreateRestock)
 		}
 
 	}
@@ -65,6 +67,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 		salesConsumer:        salesConsumer,
 		salesProducerHandler: salesProducerHandler,
 		defectHandler:        defectHandler,
+		restockHandler:       restockHandler,
 		server: &http.Server{
 			Addr:    ":" + cfg.ServerPort,
 			Handler: router,
