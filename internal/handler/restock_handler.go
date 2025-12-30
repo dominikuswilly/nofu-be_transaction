@@ -226,11 +226,19 @@ func (h *RestockHandler) GetRestock(c *gin.Context) {
 		return
 	}
 
+	// Get timezone from context
+	loc := time.UTC
+	if val, exists := c.Get("timezone"); exists {
+		if l, ok := val.(*time.Location); ok {
+			loc = l
+		}
+	}
+
 	data := make([]RestockStatusData, len(restocks))
 	for i, r := range restocks {
 		updatedAt := ""
 		if r.TsUpdatedAt != nil {
-			updatedAt = r.TsUpdatedAt.Format("2006-01-02 15:04:05")
+			updatedAt = r.TsUpdatedAt.In(loc).Format("2006-01-02 15:04:05")
 		}
 
 		data[i] = RestockStatusData{
@@ -238,7 +246,7 @@ func (h *RestockHandler) GetRestock(c *gin.Context) {
 			MerchantID: r.CMerchantID,
 			Status:     r.CStatus,
 			CreatedBy:  r.CCreatedBy,
-			CreatedAt:  r.TsCreatedAt.Format("2006-01-02 15:04:05"),
+			CreatedAt:  r.TsCreatedAt.In(loc).Format("2006-01-02 15:04:05"),
 			UpdatedBy:  r.CUpdatedBy,
 			UpdatedAt:  updatedAt,
 			Longitude:  r.DLongitude,
@@ -324,13 +332,21 @@ func (h *RestockHandler) GetRestockHistory(c *gin.Context) {
 		return
 	}
 
+	// Get timezone from context
+	loc := time.UTC
+	if val, exists := c.Get("timezone"); exists {
+		if l, ok := val.(*time.Location); ok {
+			loc = l
+		}
+	}
+
 	data := make([]RestockHistoryData, len(history))
 	for i, item := range history {
 		data[i] = RestockHistoryData{
 			ID:        item.CID,
 			Seq:       item.ISeq,
 			Status:    item.CStatus,
-			CreatedAt: item.TsCreatedAt.Format("2006-01-02 15:04:05"),
+			CreatedAt: item.TsCreatedAt.In(loc).Format("2006-01-02 15:04:05"),
 			CreatedBy: item.CCreatedBy,
 		}
 	}
