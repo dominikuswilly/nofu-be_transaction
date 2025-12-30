@@ -33,6 +33,7 @@ type CreateRestockRequest struct {
 }
 
 type RestockStatusData struct {
+	ID         string `json:"id"`
 	MerchantID string `json:"merchantId"`
 	Status     string `json:"status"`
 	CreatedBy  string `json:"createdBy"`
@@ -191,6 +192,7 @@ func (h *RestockHandler) GetRestock(c *gin.Context) {
 	data := make([]RestockStatusData, len(restocks))
 	for i, r := range restocks {
 		data[i] = RestockStatusData{
+			ID:         r.CID,
 			MerchantID: r.CMerchantID,
 			Status:     r.CStatus,
 			CreatedBy:  r.CCreatedBy,
