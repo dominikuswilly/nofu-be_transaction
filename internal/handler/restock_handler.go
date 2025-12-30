@@ -69,7 +69,6 @@ type RestockDetailResponse struct {
 
 type RestockHistoryData struct {
 	ID        string `json:"id"`
-	ProductID string `json:"productId"`
 	Seq       int    `json:"seq"`
 	Status    string `json:"status"`
 	CreatedAt string `json:"createdAt"`
@@ -329,7 +328,6 @@ func (h *RestockHandler) GetRestockHistory(c *gin.Context) {
 	for i, item := range history {
 		data[i] = RestockHistoryData{
 			ID:        item.CID,
-			ProductID: item.CProductID,
 			Seq:       item.ISeq,
 			Status:    item.CStatus,
 			CreatedAt: item.TsCreatedAt.Format("2006-01-02 15:04:05"),

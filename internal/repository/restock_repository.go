@@ -162,7 +162,7 @@ func (r *RestockRepository) GetRestockDetail(ctx context.Context, restockID stri
 // GetRestockHistory retrieves restock history for a specific restock request
 func (r *RestockRepository) GetRestockHistory(ctx context.Context, restockID string) ([]models.StockRestockHistory, error) {
 	query := `
-		SELECT c_id, c_stock_restock_id, COALESCE(c_product_id, '') as c_product_id, i_seq, c_status, c_created_by, ts_created_at
+		SELECT c_id, c_stock_restock_id, i_seq, c_status, c_created_by, ts_created_at
 		FROM stock_restock_history
 		WHERE c_stock_restock_id = $1
 		ORDER BY i_seq ASC
@@ -180,7 +180,6 @@ func (r *RestockRepository) GetRestockHistory(ctx context.Context, restockID str
 		err := rows.Scan(
 			&h.CID,
 			&h.CStockRestockID,
-			&h.CProductID,
 			&h.ISeq,
 			&h.CStatus,
 			&h.CCreatedBy,
