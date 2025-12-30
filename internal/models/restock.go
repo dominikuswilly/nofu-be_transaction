@@ -28,6 +28,7 @@ type StockRestockDetail struct {
 type StockRestockHistory struct {
 	CID             string    // c_id - UUID v7
 	CStockRestockID string    // c_stock_restock_id - based on sales_restock_master.id
+	CProductID      string    // c_product_id - based on restock detail
 	ISeq            int       // i_seq - sequential started from 1
 	CStatus         string    // c_status - initiate "PENDING"
 	CCreatedBy      string    // c_created_by - based on authorization token (claims.sub)

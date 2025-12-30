@@ -67,6 +67,21 @@ type RestockDetailResponse struct {
 	Data            []RestockDetailData `json:"data"`
 }
 
+type RestockHistoryData struct {
+	ID        string `json:"id"`
+	ProductID string `json:"productId"`
+	Seq       int    `json:"seq"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"createdAt"`
+	CreatedBy string `json:"createdBy"`
+}
+
+type RestockHistoryResponse struct {
+	ResponseCode    string               `json:"responseCode"`
+	ResponseMessage string               `json:"responseMessage"`
+	Data            []RestockHistoryData `json:"data"`
+}
+
 // Product struct is already defined in stock.go in the same package
 
 func (h *RestockHandler) CreateRestock(c *gin.Context) {
@@ -287,6 +302,42 @@ func (h *RestockHandler) GetRestockDetail(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, RestockDetailResponse{
+		ResponseCode:    "200",
+		ResponseMessage: "success",
+		Data:            data,
+	})
+}
+
+func (h *RestockHandler) GetRestockHistory(c *gin.Context) {
+	restockID := c.Param("id")
+	if restockID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"responseCode": "400", "responseMessage": "Restock ID is required"})
+		return
+	}
+
+	history, err := h.repo.GetRestockHistory(c.Request.Context(), restockID)
+	if err != nil {
+		slog.Error("Failed to fetch restock history", "error", err, "restockID", restockID)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Failed to fetch restock history",
+		})
+		return
+	}
+
+	data := make([]RestockHistoryData, len(history))
+	for i, item := range history {
+		data[i] = RestockHistoryData{
+			ID:        item.CID,
+			ProductID: item.CProductID,
+			Seq:       item.ISeq,
+			Status:    item.CStatus,
+			CreatedAt: item.TsCreatedAt.Format("2006-01-02 15:04:05"),
+			CreatedBy: item.CCreatedBy,
+		}
+	}
+
+	c.JSON(http.StatusOK, RestockHistoryResponse{
 		ResponseCode:    "200",
 		ResponseMessage: "success",
 		Data:            data,

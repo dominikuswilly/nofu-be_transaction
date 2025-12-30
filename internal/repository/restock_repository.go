@@ -158,3 +158,43 @@ func (r *RestockRepository) GetRestockDetail(ctx context.Context, restockID stri
 
 	return results, nil
 }
+
+// GetRestockHistory retrieves restock history for a specific restock request
+func (r *RestockRepository) GetRestockHistory(ctx context.Context, restockID string) ([]models.StockRestockHistory, error) {
+	query := `
+		SELECT c_id, c_stock_restock_id, COALESCE(c_product_id, '') as c_product_id, i_seq, c_status, c_created_by, ts_created_at
+		FROM stock_restock_history
+		WHERE c_stock_restock_id = $1
+		ORDER BY i_seq ASC
+	`
+
+	rows, err := r.db.Query(ctx, query, restockID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query restock history: %w", err)
+	}
+	defer rows.Close()
+
+	var results []models.StockRestockHistory
+	for rows.Next() {
+		var h models.StockRestockHistory
+		err := rows.Scan(
+			&h.CID,
+			&h.CStockRestockID,
+			&h.CProductID,
+			&h.ISeq,
+			&h.CStatus,
+			&h.CCreatedBy,
+			&h.TsCreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan restock history: %w", err)
+		}
+		results = append(results, h)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return results, nil
+}

@@ -71,6 +71,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 				restock.POST("/create", restockHandler.CreateRestock)
 				restock.GET("", restockHandler.GetRestock)
 				restock.GET("/:id/detail", restockHandler.GetRestockDetail)
+				restock.GET("/:id/history", restockHandler.GetRestockHistory)
 			}
 		}
 
