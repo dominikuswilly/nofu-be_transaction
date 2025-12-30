@@ -80,7 +80,7 @@ func main() {
 	salesProducerHandler := handler.NewSalesProducerHandler(stockRepo, cfg)
 	salesHistoryHandler := handler.NewSalesHistoryHandler(db, stockRepo, cfg)
 	defectHandler := handler.NewDefectHandler(stockRepo, cfg)
-	restockHandler := handler.NewRestockHandler(restockRepo)
+	restockHandler := handler.NewRestockHandler(restockRepo, cfg)
 
 	// Initialize server
 	srv := server.NewServer(cfg, healthHandler, stockHandler, stockProducerHandler, salesHistoryHandler, stockConsumer, salesConsumer, salesProducerHandler, defectHandler, restockHandler)

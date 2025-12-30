@@ -57,6 +57,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 			protected.GET("/sales/history/today-grouped", salesHistoryHandler.GetSalesHistoryTodayGrouped)
 			protected.POST("/restock/create", restockHandler.CreateRestock)
 			protected.GET("/restock", restockHandler.GetRestock)
+			protected.GET("/restock/:id/detail", restockHandler.GetRestockDetail)
 		}
 
 	}

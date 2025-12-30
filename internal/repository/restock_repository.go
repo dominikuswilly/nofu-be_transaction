@@ -121,3 +121,40 @@ func (r *RestockRepository) GetRestockByMerchantID(ctx context.Context, merchant
 
 	return results, nil
 }
+
+// GetRestockDetail retrieves restock details for a specific restock request
+func (r *RestockRepository) GetRestockDetail(ctx context.Context, restockID string) ([]models.StockRestockDetail, error) {
+	query := `
+		SELECT c_id, c_stock_restock_id, c_product_id, i_qty, c_created_by
+		FROM stock_restock_detail
+		WHERE c_stock_restock_id = $1
+	`
+
+	rows, err := r.db.Query(ctx, query, restockID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query restock detail: %w", err)
+	}
+	defer rows.Close()
+
+	var results []models.StockRestockDetail
+	for rows.Next() {
+		var d models.StockRestockDetail
+		err := rows.Scan(
+			&d.CID,
+			&d.CStockRestockID,
+			&d.CProductID,
+			&d.IQty,
+			&d.CCreatedBy,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan restock detail: %w", err)
+		}
+		results = append(results, d)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return results, nil
+}

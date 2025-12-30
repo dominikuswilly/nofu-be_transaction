@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -11,16 +12,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"nofu-be_transaction/internal/config"
 	"nofu-be_transaction/internal/models"
 	"nofu-be_transaction/internal/repository"
 )
 
 type RestockHandler struct {
 	repo *repository.RestockRepository
+	cfg  *config.Config
 }
 
-func NewRestockHandler(repo *repository.RestockRepository) *RestockHandler {
-	return &RestockHandler{repo: repo}
+func NewRestockHandler(repo *repository.RestockRepository, cfg *config.Config) *RestockHandler {
+	return &RestockHandler{repo: repo, cfg: cfg}
 }
 
 type RestockItemRequest struct {
@@ -51,6 +54,21 @@ type RestockStatusResponse struct {
 	ResponseMessage string              `json:"responseMessage"`
 	Data            []RestockStatusData `json:"data"`
 }
+
+type RestockDetailData struct {
+	ID          string `json:"id"`
+	ProductID   string `json:"productId"`
+	ProductName string `json:"productName"`
+	Qty         int    `json:"qty"`
+}
+
+type RestockDetailResponse struct {
+	ResponseCode    string              `json:"responseCode"`
+	ResponseMessage string              `json:"responseMessage"`
+	Data            []RestockDetailData `json:"data"`
+}
+
+// Product struct is already defined in stock.go in the same package
 
 func (h *RestockHandler) CreateRestock(c *gin.Context) {
 	var req CreateRestockRequest
@@ -216,6 +234,99 @@ func (h *RestockHandler) GetRestock(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, RestockStatusResponse{
+		ResponseCode:    "200",
+		ResponseMessage: "success",
+		Data:            data,
+	})
+}
+
+// fetchProductDetails fetches product information from the external product API
+func (h *RestockHandler) fetchProductDetails(authHeader string) (map[string]Product, error) {
+	productURL := h.cfg.ProductServiceURL + "/products"
+
+	slog.Info("Fetching product details from external API", "url", productURL)
+
+	req, err := http.NewRequest("GET", productURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if authHeader != "" {
+		req.Header.Set("Authorization", authHeader)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Error("Failed to fetch products from API", "error", err, "url", productURL)
+		return nil, fmt.Errorf("failed to fetch products: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		slog.Error("Product API returned non-200 status", "status", resp.StatusCode)
+		return nil, fmt.Errorf("product API returned status %d", resp.StatusCode)
+	}
+
+	var products []Product
+	if err := json.NewDecoder(resp.Body).Decode(&products); err != nil {
+		slog.Error("Failed to decode product data", "error", err)
+		return nil, fmt.Errorf("failed to decode products: %w", err)
+	}
+
+	productMap := make(map[string]Product)
+	for _, product := range products {
+		productMap[product.ID] = product
+	}
+
+	slog.Info("Successfully fetched products", "count", len(products))
+	return productMap, nil
+}
+
+func (h *RestockHandler) GetRestockDetail(c *gin.Context) {
+	restockID := c.Param("id")
+	if restockID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"responseCode": "400", "responseMessage": "Restock ID is required"})
+		return
+	}
+
+	details, err := h.repo.GetRestockDetail(c.Request.Context(), restockID)
+	if err != nil {
+		slog.Error("Failed to fetch restock details", "error", err, "restockID", restockID)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Failed to fetch restock details",
+		})
+		return
+	}
+
+	// Fetch product details from external API
+	authHeader := c.GetHeader("Authorization")
+	productMap, err := h.fetchProductDetails(authHeader)
+	if err != nil {
+		slog.Warn("Failed to fetch product details, continuing without product names", "error", err)
+		productMap = make(map[string]Product)
+	}
+
+	data := make([]RestockDetailData, len(details))
+	for i, d := range details {
+		productName := ""
+		if p, found := productMap[d.CProductID]; found {
+			productName = p.Name
+		} else {
+			slog.Warn("Product not found in product service", "product_id", d.CProductID)
+		}
+
+		data[i] = RestockDetailData{
+			ID:          d.CID,
+			ProductID:   d.CProductID,
+			ProductName: productName,
+			Qty:         d.IQty,
+		}
+	}
+
+	c.JSON(http.StatusOK, RestockDetailResponse{
 		ResponseCode:    "200",
 		ResponseMessage: "success",
 		Data:            data,
