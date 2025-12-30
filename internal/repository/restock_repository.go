@@ -29,10 +29,10 @@ func (r *RestockRepository) CreateRestock(ctx context.Context, master *models.St
 
 	// 1. Insert into stock_restock_master
 	masterQuery := `
-		INSERT INTO stock_restock_master (c_id, c_merchant_id, c_status, c_created_by, ts_created_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO stock_restock_master (c_id, c_merchant_id, c_status, c_created_by, ts_created_at, d_longitude, d_latitude)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err = tx.Exec(ctx, masterQuery, master.CID, master.CMerchantID, master.CStatus, master.CCreatedBy, master.TsCreatedAt)
+	_, err = tx.Exec(ctx, masterQuery, master.CID, master.CMerchantID, master.CStatus, master.CCreatedBy, master.TsCreatedAt, master.DLongitude, master.DLatitude)
 	if err != nil {
 		return fmt.Errorf("failed to insert restock master: %w", err)
 	}
@@ -81,7 +81,9 @@ func (r *RestockRepository) GetRestockByMerchantID(ctx context.Context, merchant
 		SELECT 
 			c_id, c_merchant_id, c_status, c_created_by, ts_created_at, 
 			COALESCE(c_updated_by, '') as c_updated_by, 
-			COALESCE(ts_updated_at::text, '') as ts_updated_at
+			COALESCE(ts_updated_at::text, '') as ts_updated_at,
+			COALESCE(d_longitude, '') as d_longitude,
+			COALESCE(d_latitude, '') as d_latitude
 		FROM stock_restock_master
 		WHERE c_merchant_id = $1
 		ORDER BY ts_created_at DESC
@@ -104,6 +106,8 @@ func (r *RestockRepository) GetRestockByMerchantID(ctx context.Context, merchant
 			&m.TsCreatedAt,
 			&m.CUpdatedBy,
 			&m.TsUpdatedAt,
+			&m.DLongitude,
+			&m.DLatitude,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan restock master: %w", err)

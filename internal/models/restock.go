@@ -10,7 +10,9 @@ type StockRestockMaster struct {
 	CCreatedBy  string    // c_created_by
 	TsCreatedAt time.Time // ts_created_at
 	CUpdatedBy  string    // c_updated_by
-	TsUpdatedAt string    // ts_updated_at - as per requirement, but usually time.Time or *time.Time
+	TsUpdatedAt time.Time // ts_updated_at
+	DLongitude  string    // d_longitude
+	DLatitude   string    // d_latitude
 }
 
 // StockRestockDetail represents the sales_restock_detail table

@@ -29,7 +29,9 @@ type RestockItemRequest struct {
 }
 
 type CreateRestockRequest struct {
-	Items []RestockItemRequest `json:"item" binding:"required,dive"`
+	Longitude string               `json:"longitude"`
+	Latitude  string               `json:"latitude"`
+	Items     []RestockItemRequest `json:"item" binding:"required,dive"`
 }
 
 type RestockStatusData struct {
@@ -40,6 +42,8 @@ type RestockStatusData struct {
 	CreatedAt  string `json:"createdAt"`
 	UpdatedBy  string `json:"updatedBy"`
 	UpdatedAt  string `json:"updatedAt"`
+	Longitude  string `json:"longitude"`
+	Latitude   string `json:"latitude"`
 }
 
 type RestockStatusResponse struct {
@@ -102,6 +106,8 @@ func (h *RestockHandler) CreateRestock(c *gin.Context) {
 		CStatus:     "PENDING",
 		CCreatedBy:  userID,
 		TsCreatedAt: now,
+		CLongitude:  req.Longitude,
+		CLatitude:   req.Latitude,
 	}
 
 	details := make([]models.StockRestockDetail, len(req.Items))
@@ -199,6 +205,8 @@ func (h *RestockHandler) GetRestock(c *gin.Context) {
 			CreatedAt:  r.TsCreatedAt.Format("2006-01-02 15:04:05"),
 			UpdatedBy:  r.CUpdatedBy,
 			UpdatedAt:  r.TsUpdatedAt,
+			Longitude:  r.CLongitude,
+			Latitude:   r.CLatitude,
 		}
 	}
 
