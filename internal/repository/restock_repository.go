@@ -29,10 +29,10 @@ func (r *RestockRepository) CreateRestock(ctx context.Context, master *models.St
 
 	// 1. Insert into stock_restock_master
 	masterQuery := `
-		INSERT INTO stock_restock_master (c_id, c_merchant_id, c_status)
-		VALUES ($1, $2, $3)
+		INSERT INTO stock_restock_master (c_id, c_merchant_id, c_status, c_created_by, ts_created_at)
+		VALUES ($1, $2, $3, $4, $5)
 	`
-	_, err = tx.Exec(ctx, masterQuery, master.CID, master.CMerchantID, master.CStatus)
+	_, err = tx.Exec(ctx, masterQuery, master.CID, master.CMerchantID, master.CStatus, master.CCreatedBy, master.TsCreatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to insert restock master: %w", err)
 	}
@@ -73,4 +73,47 @@ func (r *RestockRepository) CreateRestock(ctx context.Context, master *models.St
 
 	slog.Info("Restock transaction committed successfully", "id", master.CID)
 	return nil
+}
+
+// GetRestockByMerchantID retrieves restock requests for a merchant from stock_restock_master
+func (r *RestockRepository) GetRestockByMerchantID(ctx context.Context, merchantID string) ([]models.StockRestockMaster, error) {
+	query := `
+		SELECT 
+			c_id, c_merchant_id, c_status, c_created_by, ts_created_at, 
+			COALESCE(c_updated_by, '') as c_updated_by, 
+			COALESCE(ts_updated_at::text, '') as ts_updated_at
+		FROM stock_restock_master
+		WHERE c_merchant_id = $1
+		ORDER BY ts_created_at DESC
+	`
+
+	rows, err := r.db.Query(ctx, query, merchantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query restock master: %w", err)
+	}
+	defer rows.Close()
+
+	var results []models.StockRestockMaster
+	for rows.Next() {
+		var m models.StockRestockMaster
+		err := rows.Scan(
+			&m.CID,
+			&m.CMerchantID,
+			&m.CStatus,
+			&m.CCreatedBy,
+			&m.TsCreatedAt,
+			&m.CUpdatedBy,
+			&m.TsUpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan restock master: %w", err)
+		}
+		results = append(results, m)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return results, nil
 }

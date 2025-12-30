@@ -32,6 +32,21 @@ type CreateRestockRequest struct {
 	Items []RestockItemRequest `json:"item" binding:"required,dive"`
 }
 
+type RestockStatusData struct {
+	MerchantID string `json:"merchantId"`
+	Status     string `json:"status"`
+	CreatedBy  string `json:"createdBy"`
+	CreatedAt  string `json:"createdAt"`
+	UpdatedBy  string `json:"updatedBy"`
+	UpdatedAt  string `json:"updatedAt"`
+}
+
+type RestockStatusResponse struct {
+	ResponseCode    string              `json:"responseCode"`
+	ResponseMessage string              `json:"responseMessage"`
+	Data            []RestockStatusData `json:"data"`
+}
+
 func (h *RestockHandler) CreateRestock(c *gin.Context) {
 	var req CreateRestockRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -79,10 +94,13 @@ func (h *RestockHandler) CreateRestock(c *gin.Context) {
 
 	// Prepare data
 	masterID, _ := uuid.NewV7()
+	now := time.Now()
 	master := &models.StockRestockMaster{
 		CID:         masterID.String(),
 		CMerchantID: merchantID,
 		CStatus:     "PENDING",
+		CCreatedBy:  userID,
+		TsCreatedAt: now,
 	}
 
 	details := make([]models.StockRestockDetail, len(req.Items))
@@ -122,5 +140,69 @@ func (h *RestockHandler) CreateRestock(c *gin.Context) {
 		"data": gin.H{
 			"requestID": master.CID,
 		},
+	})
+}
+
+func (h *RestockHandler) GetRestock(c *gin.Context) {
+	// Extract claims from Authorization header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Missing Authorization header"})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	parts := strings.Split(tokenString, ".")
+	if len(parts) != 3 {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Invalid token format"})
+		return
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Invalid token payload"})
+		return
+	}
+
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Invalid token claims"})
+		return
+	}
+
+	userID, _ := claims["sub"].(string)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "User ID (sub) not found in token"})
+		return
+	}
+
+	merchantID := userID // As per pattern in CreateRestock
+
+	restocks, err := h.repo.GetRestockByMerchantID(c.Request.Context(), merchantID)
+	if err != nil {
+		slog.Error("Failed to fetch restock status", "error", err, "merchantID", merchantID)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Failed to fetch restock status",
+		})
+		return
+	}
+
+	data := make([]RestockStatusData, len(restocks))
+	for i, r := range restocks {
+		data[i] = RestockStatusData{
+			MerchantID: r.CMerchantID,
+			Status:     r.CStatus,
+			CreatedBy:  r.CCreatedBy,
+			CreatedAt:  r.TsCreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedBy:  r.CUpdatedBy,
+			UpdatedAt:  r.TsUpdatedAt,
+		}
+	}
+
+	c.JSON(http.StatusOK, RestockStatusResponse{
+		ResponseCode:    "200",
+		ResponseMessage: "success",
+		Data:            data,
 	})
 }
