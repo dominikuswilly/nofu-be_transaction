@@ -27,9 +27,9 @@ func (r *RestockRepository) CreateRestock(ctx context.Context, master *models.St
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Insert into sales_restock_master
+	// 1. Insert into stock_restock_master
 	masterQuery := `
-		INSERT INTO sales_restock_master (c_id, c_merchant_id, c_status)
+		INSERT INTO stock_restock_master (c_id, c_merchant_id, c_status)
 		VALUES ($1, $2, $3)
 	`
 	_, err = tx.Exec(ctx, masterQuery, master.CID, master.CMerchantID, master.CStatus)
@@ -37,11 +37,11 @@ func (r *RestockRepository) CreateRestock(ctx context.Context, master *models.St
 		return fmt.Errorf("failed to insert restock master: %w", err)
 	}
 
-	// 2. Insert into sales_restock_detail
+	// 2. Insert into stock_restock_detail
 	if len(details) > 0 {
 		batch := &pgx.Batch{}
 		detailQuery := `
-			INSERT INTO sales_restock_detail (c_id, c_stock_restock_id, c_product_id, i_qty)
+			INSERT INTO stock_restock_detail (c_id, c_stock_restock_id, c_product_id, i_qty)
 			VALUES ($1, $2, $3, $4)
 		`
 		for _, d := range details {
@@ -57,9 +57,9 @@ func (r *RestockRepository) CreateRestock(ctx context.Context, master *models.St
 		br.Close()
 	}
 
-	// 3. Insert into sales_restock_history
+	// 3. Insert into stock_restock_history
 	historyQuery := `
-		INSERT INTO sales_restock_history (c_id, c_stock_restock_id, i_seq, c_status, c_created_by, ts_created_at)
+		INSERT INTO stock_restock_history (c_id, c_stock_restock_id, i_seq, c_status, c_created_by, ts_created_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 	_, err = tx.Exec(ctx, historyQuery, history.CID, history.CStockRestockID, history.ISeq, history.CStatus, history.CCreatedBy, history.TsCreatedAt)
