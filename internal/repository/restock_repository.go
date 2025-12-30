@@ -41,11 +41,11 @@ func (r *RestockRepository) CreateRestock(ctx context.Context, master *models.St
 	if len(details) > 0 {
 		batch := &pgx.Batch{}
 		detailQuery := `
-			INSERT INTO stock_restock_detail (c_id, c_stock_restock_id, c_product_id, i_qty)
-			VALUES ($1, $2, $3, $4)
+			INSERT INTO stock_restock_detail (c_id, c_stock_restock_id, c_product_id, i_qty, c_created_by)
+			VALUES ($1, $2, $3, $4, $5)
 		`
 		for _, d := range details {
-			batch.Queue(detailQuery, d.CID, d.CStockRestockID, d.CProductID, d.IQty)
+			batch.Queue(detailQuery, d.CID, d.CStockRestockID, d.CProductID, d.IQty, d.CCreatedBy)
 		}
 		br := tx.SendBatch(ctx, batch)
 		for i := 0; i < len(details); i++ {

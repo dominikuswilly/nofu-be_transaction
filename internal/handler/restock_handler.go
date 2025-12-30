@@ -93,6 +93,7 @@ func (h *RestockHandler) CreateRestock(c *gin.Context) {
 			CStockRestockID: master.CID,
 			CProductID:      item.ProductID,
 			IQty:            item.Qty,
+			CCreatedBy:      userID,
 		}
 	}
 
