@@ -67,6 +67,7 @@ func main() {
 
 	// Initialize repositories
 	stockRepo := repository.NewStockRepository(db)
+	restockRepo := repository.NewRestockRepository(db)
 
 	// Initialize consumers with their own dedicated RabbitMQ clients
 	stockConsumer := consumer.NewStockConsumer(rabbitClientStock, stockRepo, cfg.RabbitMQQueue, cfg.RabbitMQExchange, cfg.RabbitMQRoutingKey)
@@ -79,9 +80,10 @@ func main() {
 	salesProducerHandler := handler.NewSalesProducerHandler(stockRepo, cfg)
 	salesHistoryHandler := handler.NewSalesHistoryHandler(db, stockRepo, cfg)
 	defectHandler := handler.NewDefectHandler(stockRepo, cfg)
+	restockHandler := handler.NewRestockHandler(restockRepo)
 
 	// Initialize server
-	srv := server.NewServer(cfg, healthHandler, stockHandler, stockProducerHandler, salesHistoryHandler, stockConsumer, salesConsumer, salesProducerHandler, defectHandler)
+	srv := server.NewServer(cfg, healthHandler, stockHandler, stockProducerHandler, salesHistoryHandler, stockConsumer, salesConsumer, salesProducerHandler, defectHandler, restockHandler)
 
 	// Start server
 	if err := srv.Start(); err != nil {
