@@ -106,8 +106,8 @@ func (h *RestockHandler) CreateRestock(c *gin.Context) {
 		CStatus:     "PENDING",
 		CCreatedBy:  userID,
 		TsCreatedAt: now,
-		CLongitude:  req.Longitude,
-		CLatitude:   req.Latitude,
+		DLongitude:  req.Longitude,
+		DLatitude:   req.Latitude,
 	}
 
 	details := make([]models.StockRestockDetail, len(req.Items))
@@ -204,9 +204,9 @@ func (h *RestockHandler) GetRestock(c *gin.Context) {
 			CreatedBy:  r.CCreatedBy,
 			CreatedAt:  r.TsCreatedAt.Format("2006-01-02 15:04:05"),
 			UpdatedBy:  r.CUpdatedBy,
-			UpdatedAt:  r.TsUpdatedAt,
-			Longitude:  r.CLongitude,
-			Latitude:   r.CLatitude,
+			UpdatedAt:  r.TsUpdatedAt.Format("2006-01-02 15:04:05"),
+			Longitude:  r.DLongitude,
+			Latitude:   r.DLatitude,
 		}
 	}
 
