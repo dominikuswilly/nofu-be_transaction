@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -197,61 +195,9 @@ type SalesDefectResponse struct {
 	Data            []SalesDefectDetailData `json:"data"`
 }
 
-// fetchProductDetails fetches product information from the external product API
+// fetchProductDetails fetches product information from the external product API using the shared helper
 func (h *DefectHandler) fetchProductDetails(authHeader string) (map[string]Product, error) {
-	productURL := h.cfg.ProductServiceURL + "/products"
-
-	slog.Info("Fetching product details from external API", "url", productURL)
-
-	// Create a new request instead of using http.Get to set headers
-	req, err := http.NewRequest("GET", productURL, nil)
-	if err != nil {
-		slog.Error("Failed to create request", "error", err, "url", productURL)
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Add Content-Type and Accept headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	// Add Authorization header if provided
-	if authHeader != "" {
-		req.Header.Set("Authorization", authHeader)
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		slog.Error("Failed to fetch products from API", "error", err, "url", productURL)
-		return nil, fmt.Errorf("failed to fetch products: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		slog.Error("Product API returned non-200 status", "status", resp.StatusCode)
-		return nil, fmt.Errorf("product API returned status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error("Failed to read product API response", "error", err)
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var products []Product
-	if err := json.Unmarshal(body, &products); err != nil {
-		slog.Error("Failed to unmarshal product data", "error", err)
-		return nil, fmt.Errorf("failed to unmarshal products: %w", err)
-	}
-
-	// Create a map for quick lookup by product ID
-	productMap := make(map[string]Product)
-	for _, product := range products {
-		productMap[product.ID] = product
-	}
-
-	slog.Info("Successfully fetched products", "count", len(products))
-	return productMap, nil
+	return fetchProductDetailsInternal(h.cfg.ProductServiceURL, authHeader)
 }
 
 func (h *DefectHandler) GetSalesDefect(c *gin.Context) {

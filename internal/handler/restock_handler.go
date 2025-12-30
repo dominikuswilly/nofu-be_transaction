@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -240,48 +239,9 @@ func (h *RestockHandler) GetRestock(c *gin.Context) {
 	})
 }
 
-// fetchProductDetails fetches product information from the external product API
+// fetchProductDetails fetches product information from the external product API using the shared helper
 func (h *RestockHandler) fetchProductDetails(authHeader string) (map[string]Product, error) {
-	productURL := h.cfg.ProductServiceURL + "/products"
-
-	slog.Info("Fetching product details from external API", "url", productURL)
-
-	req, err := http.NewRequest("GET", productURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	if authHeader != "" {
-		req.Header.Set("Authorization", authHeader)
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		slog.Error("Failed to fetch products from API", "error", err, "url", productURL)
-		return nil, fmt.Errorf("failed to fetch products: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		slog.Error("Product API returned non-200 status", "status", resp.StatusCode)
-		return nil, fmt.Errorf("product API returned status %d", resp.StatusCode)
-	}
-
-	var products []Product
-	if err := json.NewDecoder(resp.Body).Decode(&products); err != nil {
-		slog.Error("Failed to decode product data", "error", err)
-		return nil, fmt.Errorf("failed to decode products: %w", err)
-	}
-
-	productMap := make(map[string]Product)
-	for _, product := range products {
-		productMap[product.ID] = product
-	}
-
-	slog.Info("Successfully fetched products", "count", len(products))
-	return productMap, nil
+	return fetchProductDetailsInternal(h.cfg.ProductServiceURL, authHeader)
 }
 
 func (h *RestockHandler) GetRestockDetail(c *gin.Context) {

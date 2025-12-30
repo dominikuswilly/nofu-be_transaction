@@ -1,9 +1,7 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -28,44 +26,9 @@ func NewStockHandler(db *pgxpool.Pool, cfg *config.Config) *StockHandler {
 	}
 }
 
-// fetchProductDetails fetches product information from the external product API
+// fetchProductDetails fetches product information from the external product API using the shared helper
 func (h *StockHandler) fetchProductDetails() (map[string]Product, error) {
-	productURL := h.Config.ProductServiceURL + "/products"
-
-	slog.Info("Fetching product details from external API", "url", productURL)
-
-	resp, err := http.Get(productURL)
-	if err != nil {
-		slog.Error("Failed to fetch products from API", "error", err, "url", productURL)
-		return nil, fmt.Errorf("failed to fetch products: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		slog.Error("Product API returned non-200 status", "status", resp.StatusCode)
-		return nil, fmt.Errorf("product API returned status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error("Failed to read product API response", "error", err)
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var products []Product
-	if err := json.Unmarshal(body, &products); err != nil {
-		slog.Error("Failed to unmarshal product data", "error", err)
-		return nil, fmt.Errorf("failed to unmarshal products: %w", err)
-	}
-
-	// Create a map for quick lookup by product ID
-	productMap := make(map[string]Product)
-	for _, product := range products {
-		productMap[product.ID] = product
-	}
-
-	slog.Info("Successfully fetched products", "count", len(products))
-	return productMap, nil
+	return fetchProductDetailsInternal(h.Config.ProductServiceURL, "")
 }
 
 type StockResponse struct {
@@ -91,19 +54,7 @@ type StockDetail struct {
 	Currency     string `json:"currency"`
 }
 
-// Product represents the product data from external API
-type Product struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Price       int    `json:"price"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
-	CreatedBy   string `json:"created_by"`
-	URL         string `json:"url"`
-	Currency    string `json:"currency"`
-	Stock       int    `json:"stock"`
-}
+// Product struct is now defined in product_helper.go
 
 func (h *StockHandler) GetStock(c *gin.Context) {
 	ctx := c.Request.Context()
