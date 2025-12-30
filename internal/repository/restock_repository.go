@@ -81,9 +81,9 @@ func (r *RestockRepository) GetRestockByMerchantID(ctx context.Context, merchant
 		SELECT 
 			c_id, c_merchant_id, c_status, c_created_by, ts_created_at, 
 			COALESCE(c_updated_by, '') as c_updated_by, 
-			COALESCE(ts_updated_at::text, '') as ts_updated_at,
-			COALESCE(d_longitude, '') as d_longitude,
-			COALESCE(d_latitude, '') as d_latitude
+			ts_updated_at,
+			COALESCE(d_longitude, 0) as d_longitude,
+			COALESCE(d_latitude, 0) as d_latitude
 		FROM stock_restock_master
 		WHERE c_merchant_id = $1
 		ORDER BY ts_created_at DESC

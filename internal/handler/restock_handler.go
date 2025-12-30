@@ -29,21 +29,21 @@ type RestockItemRequest struct {
 }
 
 type CreateRestockRequest struct {
-	Longitude string               `json:"longitude"`
-	Latitude  string               `json:"latitude"`
+	Longitude float64              `json:"longitude"`
+	Latitude  float64              `json:"latitude"`
 	Items     []RestockItemRequest `json:"item" binding:"required,dive"`
 }
 
 type RestockStatusData struct {
-	ID         string `json:"id"`
-	MerchantID string `json:"merchantId"`
-	Status     string `json:"status"`
-	CreatedBy  string `json:"createdBy"`
-	CreatedAt  string `json:"createdAt"`
-	UpdatedBy  string `json:"updatedBy"`
-	UpdatedAt  string `json:"updatedAt"`
-	Longitude  string `json:"longitude"`
-	Latitude   string `json:"latitude"`
+	ID         string  `json:"id"`
+	MerchantID string  `json:"merchantId"`
+	Status     string  `json:"status"`
+	CreatedBy  string  `json:"createdBy"`
+	CreatedAt  string  `json:"createdAt"`
+	UpdatedBy  string  `json:"updatedBy"`
+	UpdatedAt  string  `json:"updatedAt"`
+	Longitude  float64 `json:"longitude"`
+	Latitude   float64 `json:"latitude"`
 }
 
 type RestockStatusResponse struct {
@@ -197,6 +197,11 @@ func (h *RestockHandler) GetRestock(c *gin.Context) {
 
 	data := make([]RestockStatusData, len(restocks))
 	for i, r := range restocks {
+		updatedAt := ""
+		if r.TsUpdatedAt != nil {
+			updatedAt = r.TsUpdatedAt.Format("2006-01-02 15:04:05")
+		}
+
 		data[i] = RestockStatusData{
 			ID:         r.CID,
 			MerchantID: r.CMerchantID,
@@ -204,7 +209,7 @@ func (h *RestockHandler) GetRestock(c *gin.Context) {
 			CreatedBy:  r.CCreatedBy,
 			CreatedAt:  r.TsCreatedAt.Format("2006-01-02 15:04:05"),
 			UpdatedBy:  r.CUpdatedBy,
-			UpdatedAt:  r.TsUpdatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:  updatedAt,
 			Longitude:  r.DLongitude,
 			Latitude:   r.DLatitude,
 		}

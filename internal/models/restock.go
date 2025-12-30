@@ -4,15 +4,15 @@ import "time"
 
 // StockRestockMaster represents the sales_restock_master table
 type StockRestockMaster struct {
-	CID         string    // c_id - UUID v7
-	CMerchantID string    // c_merchant_id - by authorization token (claims.sub)
-	CStatus     string    // c_status - pending
-	CCreatedBy  string    // c_created_by
-	TsCreatedAt time.Time // ts_created_at
-	CUpdatedBy  string    // c_updated_by
-	TsUpdatedAt time.Time // ts_updated_at
-	DLongitude  string    // d_longitude
-	DLatitude   string    // d_latitude
+	CID         string     // c_id - UUID v7
+	CMerchantID string     // c_merchant_id - by authorization token (claims.sub)
+	CStatus     string     // c_status - pending
+	CCreatedBy  string     // c_created_by
+	TsCreatedAt time.Time  // ts_created_at
+	CUpdatedBy  string     // c_updated_by
+	TsUpdatedAt *time.Time // ts_updated_at - pointer for NULL
+	DLongitude  float64    // d_longitude
+	DLatitude   float64    // d_latitude
 }
 
 // StockRestockDetail represents the sales_restock_detail table
