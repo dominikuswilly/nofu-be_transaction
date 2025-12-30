@@ -47,17 +47,31 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg.AuthValidateURL))
 		{
-			protected.GET("/stock", stockHandler.GetStock)
-			protected.POST("/stock/create", stockProducerHandler.CreateStock)
-			protected.POST("/sales/create", salesProducerHandler.CreateSales)
-			protected.POST("/sales/defect/create", defectHandler.CreateDefect)
-			protected.GET("/sales/defect", defectHandler.GetSalesDefect)
-			protected.DELETE("/sales/defect/:productId", defectHandler.DeleteSalesDefect)
-			protected.GET("/sales/history", salesHistoryHandler.GetSalesHistory)
-			protected.GET("/sales/history/today-grouped", salesHistoryHandler.GetSalesHistoryTodayGrouped)
-			protected.POST("/restock/create", restockHandler.CreateRestock)
-			protected.GET("/restock", restockHandler.GetRestock)
-			protected.GET("/restock/:id/detail", restockHandler.GetRestockDetail)
+			// Stock routes
+			stock := protected.Group("/stock")
+			{
+				stock.GET("", stockHandler.GetStock)
+				stock.POST("/create", stockProducerHandler.CreateStock)
+			}
+
+			// Sales routes
+			sales := protected.Group("/sales")
+			{
+				sales.POST("/create", salesProducerHandler.CreateSales)
+				sales.POST("/defect/create", defectHandler.CreateDefect)
+				sales.GET("/defect", defectHandler.GetSalesDefect)
+				sales.DELETE("/defect/:productId", defectHandler.DeleteSalesDefect)
+				sales.GET("/history", salesHistoryHandler.GetSalesHistory)
+				sales.GET("/history/today-grouped", salesHistoryHandler.GetSalesHistoryTodayGrouped)
+			}
+
+			// Restock routes
+			restock := protected.Group("/restock")
+			{
+				restock.POST("/create", restockHandler.CreateRestock)
+				restock.GET("", restockHandler.GetRestock)
+				restock.GET("/:id/detail", restockHandler.GetRestockDetail)
+			}
 		}
 
 	}
