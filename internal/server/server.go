@@ -63,6 +63,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 				sales.DELETE("/defect/:productId", defectHandler.DeleteSalesDefect)
 				sales.GET("/history", salesHistoryHandler.GetSalesHistory)
 				sales.GET("/history/today-grouped", salesHistoryHandler.GetSalesHistoryTodayGrouped)
+				sales.GET("/balance", salesHistoryHandler.GetBalance)
 			}
 
 			// Restock routes

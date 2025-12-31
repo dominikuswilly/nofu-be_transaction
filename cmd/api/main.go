@@ -67,6 +67,7 @@ func main() {
 
 	// Initialize repositories
 	stockRepo := repository.NewStockRepository(db)
+	salesRepo := repository.NewSalesRepository(db)
 	restockRepo := repository.NewRestockRepository(db)
 
 	// Initialize consumers with their own dedicated RabbitMQ clients
@@ -78,7 +79,7 @@ func main() {
 	stockHandler := handler.NewStockHandler(db, cfg)
 	stockProducerHandler := handler.NewStockProducerHandler(stockRepo, cfg)
 	salesProducerHandler := handler.NewSalesProducerHandler(stockRepo, cfg)
-	salesHistoryHandler := handler.NewSalesHistoryHandler(db, stockRepo, cfg)
+	salesHistoryHandler := handler.NewSalesHistoryHandler(db, stockRepo, salesRepo, cfg)
 	defectHandler := handler.NewDefectHandler(stockRepo, cfg)
 	restockHandler := handler.NewRestockHandler(restockRepo, cfg)
 

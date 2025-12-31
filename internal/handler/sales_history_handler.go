@@ -21,13 +21,15 @@ import (
 type SalesHistoryHandler struct {
 	DB        *pgxpool.Pool
 	StockRepo *repository.StockRepository
+	SalesRepo *repository.SalesRepository
 	Config    *config.Config
 }
 
-func NewSalesHistoryHandler(db *pgxpool.Pool, stockRepo *repository.StockRepository, cfg *config.Config) *SalesHistoryHandler {
+func NewSalesHistoryHandler(db *pgxpool.Pool, stockRepo *repository.StockRepository, salesRepo *repository.SalesRepository, cfg *config.Config) *SalesHistoryHandler {
 	return &SalesHistoryHandler{
 		DB:        db,
 		StockRepo: stockRepo,
+		SalesRepo: salesRepo,
 		Config:    cfg,
 	}
 }
@@ -170,7 +172,7 @@ func (h *SalesHistoryHandler) GetSalesHistory(c *gin.Context) {
 	slog.Info("Fetching sales history", "merchant_id", merchantID, "time", timeParam)
 
 	// Get sales history from repository
-	repoSalesDetails, err := h.StockRepo.GetSalesHistory(ctx, merchantID, timeParam)
+	repoSalesDetails, err := h.SalesRepo.GetSalesHistory(ctx, merchantID, timeParam)
 	if err != nil {
 		slog.Error("Failed to get sales history", "error", err, "merchant_id", merchantID, "time", timeParam)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -305,7 +307,7 @@ func (h *SalesHistoryHandler) GetSalesHistoryTodayGrouped(c *gin.Context) {
 	slog.Info("Fetching grouped sales history", "merchant_id", merchantID)
 
 	// Get grouped sales history from repository
-	repoSalesDetails, err := h.StockRepo.GetSalesHistoryTodayGrouped(ctx, merchantID)
+	repoSalesDetails, err := h.SalesRepo.GetSalesHistoryTodayGrouped(ctx, merchantID)
 	if err != nil {
 		slog.Error("Failed to get grouped sales history", "error", err, "merchant_id", merchantID)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -362,4 +364,69 @@ func (h *SalesHistoryHandler) GetSalesHistoryTodayGrouped(c *gin.Context) {
 	// Set Content-Type header explicitly (as requested in previous conversations)
 	c.Header("Content-Type", "application/json")
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *SalesHistoryHandler) GetBalance(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// 1. Extract info from Authorization header (manual parsing fallback)
+	authHeader := c.GetHeader("Authorization")
+	userID := ""
+	if authHeader != "" {
+		tokenString := ""
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		} else {
+			tokenString = authHeader
+		}
+
+		parts := strings.Split(tokenString, ".")
+		if len(parts) == 3 {
+			payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+			if err == nil {
+				var claims map[string]interface{}
+				if err := json.Unmarshal(payload, &claims); err == nil {
+					if sub, ok := claims["sub"].(string); ok {
+						userID = sub
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Extract from context (set by AuthMiddleware)
+	merchantID := ""
+	if val, exists := c.Get("merchant_id"); exists {
+		if strVal, ok := val.(string); ok {
+			merchantID = strVal
+		}
+	}
+
+	if merchantID == "" {
+		merchantID = userID
+	}
+
+	if merchantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"responseCode":    "401",
+			"responseMessage": "merchant_id not found in token",
+		})
+		return
+	}
+
+	balance, err := h.SalesRepo.GetMerchantBalance(ctx, merchantID)
+	if err != nil {
+		slog.Error("Failed to get merchant balance", "error", err, "merchant_id", merchantID)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"responseCode":    "200",
+		"responseMessage": "success",
+		"data":            balance,
+	})
 }
