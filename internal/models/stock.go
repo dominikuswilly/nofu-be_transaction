@@ -42,10 +42,12 @@ type StockDetailMessage struct {
 
 // SalesMaster represents the sales_master table
 type SalesMaster struct {
-	CID         string    // c_id - UUID v7
-	TsCreatedAt time.Time // ts_created_at - auto-generated
-	CCreatedBy  string    // c_created_by - based on authorization claims.sub
-	CMerchantID string    // c_merchant_id - from request body
+	CID            string    // c_id - UUID v7
+	TsCreatedAt    time.Time // ts_created_at - auto-generated
+	CCreatedBy     string    // c_created_by - based on authorization claims.sub
+	CMerchantID    string    // c_merchant_id - from request body
+	CPaymentMethod string    // c_payment_method
+	DTotalPayment  float64   // d_total_payment
 }
 
 // SalesDetail represents the sales_detail table
@@ -61,9 +63,11 @@ type SalesDetail struct {
 
 // SalesMessage represents the incoming RabbitMQ message for sales
 type SalesMessage struct {
-	UserID       string               `json:"userId"`       // For c_created_by
-	MerchantID   string               `json:"merchantId"`   // For c_merchant_id
-	SalesDetails []SalesDetailMessage `json:"salesDetails"` // Sales items
+	UserID        string               `json:"userId"`        // For c_created_by
+	MerchantID    string               `json:"merchantId"`    // For c_merchant_id
+	PaymentMethod string               `json:"paymentMethod"` // For c_payment_method
+	TotalPayment  float64              `json:"totalPayment"`  // For d_total_payment
+	SalesDetails  []SalesDetailMessage `json:"salesDetails"`  // Sales items
 }
 
 // SalesDetailMessage represents individual sales items in the message

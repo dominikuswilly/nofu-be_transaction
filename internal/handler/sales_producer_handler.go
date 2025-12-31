@@ -38,7 +38,9 @@ type SalesDetailRequest struct {
 }
 
 type CreateSalesRequest struct {
-	SalesDetails []SalesDetailRequest `json:"salesDetails" binding:"required,dive"`
+	PaymentMethod string               `json:"paymentMethod" binding:"required"`
+	TotalPayment  float64              `json:"totalPayment" binding:"required"`
+	SalesDetails  []SalesDetailRequest `json:"salesDetails" binding:"required,dive"`
 }
 
 func (h *SalesProducerHandler) CreateSales(c *gin.Context) {
@@ -119,10 +121,12 @@ func (h *SalesProducerHandler) CreateSales(c *gin.Context) {
 
 	// Create SalesMaster
 	salesMaster := &models.SalesMaster{
-		CID:         salesID.String(),
-		CCreatedBy:  userID,
-		CMerchantID: merchantID,
-		TsCreatedAt: time.Now(),
+		CID:            salesID.String(),
+		CCreatedBy:     userID,
+		CMerchantID:    merchantID,
+		TsCreatedAt:    time.Now(),
+		CPaymentMethod: req.PaymentMethod,
+		DTotalPayment:  req.TotalPayment,
 	}
 
 	// Create SalesDetails

@@ -86,10 +86,12 @@ func (c *SalesConsumer) handleMessage(body []byte) error {
 
 	// Create sales master
 	salesMaster := &models.SalesMaster{
-		CID:         salesMasterID.String(),
-		TsCreatedAt: time.Now(),
-		CCreatedBy:  msg.UserID,
-		CMerchantID: msg.MerchantID,
+		CID:            salesMasterID.String(),
+		TsCreatedAt:    time.Now(),
+		CCreatedBy:     msg.UserID,
+		CMerchantID:    msg.MerchantID,
+		CPaymentMethod: msg.PaymentMethod,
+		DTotalPayment:  msg.TotalPayment,
 	}
 
 	// Create sales details
@@ -134,6 +136,12 @@ func (c *SalesConsumer) validateMessage(msg *models.SalesMessage) error {
 	}
 	if msg.MerchantID == "" {
 		return fmt.Errorf("merchantId is required")
+	}
+	if msg.PaymentMethod == "" {
+		return fmt.Errorf("paymentMethod is required")
+	}
+	if msg.TotalPayment <= 0 {
+		return fmt.Errorf("totalPayment must be positive")
 	}
 	if len(msg.SalesDetails) == 0 {
 		return fmt.Errorf("salesDetails cannot be empty")
