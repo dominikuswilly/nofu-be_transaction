@@ -90,12 +90,14 @@ func (h *StockProducerHandler) CreateStock(c *gin.Context) {
 		}
 
 		stockDetails = append(stockDetails, models.StockDetail{
-			CID:        detailID.String(),
-			CStockID:   stockMaster.CID,
-			CProductID: detailMsg.ProductID,
-			DPrice:     detailMsg.Price,
-			IQty:       detailMsg.Qty,
-			CCurrency:  detailMsg.Currency,
+			CID:         detailID.String(),
+			CStockID:    stockMaster.CID,
+			CProductID:  detailMsg.ProductID,
+			DPrice:      detailMsg.Price,
+			IQty:        detailMsg.Qty,
+			IQtyCurrent: detailMsg.Qty,
+			IQtyRestock: 0,
+			CCurrency:   detailMsg.Currency,
 		})
 	}
 

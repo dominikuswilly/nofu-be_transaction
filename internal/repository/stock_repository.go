@@ -52,8 +52,8 @@ func (r *StockRepository) InsertStockDetails(ctx context.Context, stockDetails [
 	// Use batch insert for better performance
 	batch := &pgx.Batch{}
 	query := `
-		INSERT INTO stock_detail (c_id, c_stock_id, c_product_id, d_price, i_qty, c_currency)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO stock_detail (c_id, c_stock_id, c_product_id, d_price, i_qty, i_qty_current, i_qty_restock, c_currency)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 
 	for _, detail := range stockDetails {
@@ -63,6 +63,8 @@ func (r *StockRepository) InsertStockDetails(ctx context.Context, stockDetails [
 			detail.CProductID,
 			detail.DPrice,
 			detail.IQty,
+			detail.IQtyCurrent,
+			detail.IQtyRestock,
 			detail.CCurrency,
 		)
 	}
@@ -111,8 +113,8 @@ func (r *StockRepository) InsertStockTransaction(ctx context.Context, stockMaste
 	if len(stockDetails) > 0 {
 		batch := &pgx.Batch{}
 		detailQuery := `
-			INSERT INTO stock_detail (c_id, c_stock_id, c_product_id, d_price, i_qty, c_currency)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			INSERT INTO stock_detail (c_id, c_stock_id, c_product_id, d_price, i_qty, i_qty_current, i_qty_restock, c_currency)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		`
 
 		for _, detail := range stockDetails {
@@ -122,6 +124,8 @@ func (r *StockRepository) InsertStockTransaction(ctx context.Context, stockMaste
 				detail.CProductID,
 				detail.DPrice,
 				detail.IQty,
+				detail.IQtyCurrent,
+				detail.IQtyRestock,
 				detail.CCurrency,
 			)
 		}
@@ -156,7 +160,8 @@ func (r *StockRepository) InsertStockTransaction(ctx context.Context, stockMaste
 func (r *StockRepository) ReduceStockByProductID(ctx context.Context, tx pgx.Tx, productID string, qty int32, stockDetailID string) (string, error) {
 	query := `
 		UPDATE stock_detail
-		SET i_qty = i_qty - $1
+		SET i_qty = i_qty - $1,
+			i_qty_current = i_qty_current - $1
 		WHERE c_product_id = $2 AND i_qty >= $1 AND c_id = $3
 		RETURNING c_id
 	`
@@ -636,7 +641,8 @@ func (r *StockRepository) DeleteSalesDefectDetail(ctx context.Context, productID
 			RETURNING sdd.c_stock_detail_id, sdd.i_qty
 		)
 		UPDATE stock_detail sd
-		SET i_qty = sd.i_qty + ud.total_qty
+		SET i_qty = sd.i_qty + ud.total_qty,
+			i_qty_current = sd.i_qty_current + ud.total_qty
 		FROM (
 			SELECT c_stock_detail_id, SUM(i_qty) as total_qty
 			FROM updated_details

@@ -13,12 +13,14 @@ type StockMaster struct {
 
 // StockDetail represents the stock_detail table
 type StockDetail struct {
-	CID        string  // c_id - UUID v7
-	CStockID   string  // c_stock_id - foreign key to stock_master.c_id
-	CProductID string  // c_product_id - from request
-	DPrice     float64 // d_price - price
-	IQty       int32   // i_qty - quantity
-	CCurrency  string  // c_currency - currency code
+	CID         string  // c_id - UUID v7
+	CStockID    string  // c_stock_id - foreign key to stock_master.c_id
+	CProductID  string  // c_product_id - from request
+	DPrice      float64 // d_price - price
+	IQty        int32   // i_qty - quantity
+	IQtyCurrent int32   // i_qty_current - current quantity
+	IQtyRestock int32   // i_qty_restock - restock quantity
+	CCurrency   string  // c_currency - currency code
 }
 
 // StockMessage represents the incoming RabbitMQ message
