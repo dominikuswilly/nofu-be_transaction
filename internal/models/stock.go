@@ -4,11 +4,13 @@ import "time"
 
 // StockMaster represents the stock_master table
 type StockMaster struct {
-	CID         string    // c_id - UUID v7
-	CCreatedBy  string    // c_created_by - based on authorization claims.sub
-	CMerchantID string    // c_merchant_id - from request body
-	CAdminID    string    // c_admin_id - based on authorization claims.sub
-	TsCreatedAt time.Time // ts_created_at - auto-generated
+	CID            string    // c_id - UUID v7
+	CCreatedBy     string    // c_created_by - based on authorization claims.sub
+	CMerchantID    string    // c_merchant_id - from request body
+	CAdminID       string    // c_admin_id - based on authorization claims.sub
+	CPaymentMethod string    // c_payment_method
+	DTotalPayment  float64   // d_total_payment
+	TsCreatedAt    time.Time // ts_created_at - auto-generated
 }
 
 // StockDetail represents the stock_detail table
