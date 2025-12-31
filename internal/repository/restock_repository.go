@@ -85,7 +85,7 @@ func (r *RestockRepository) GetRestockByMerchantID(ctx context.Context, merchant
 			COALESCE(d_longitude, 0) as d_longitude,
 			COALESCE(d_latitude, 0) as d_latitude
 		FROM stock_restock_master
-		WHERE c_merchant_id = $1
+		WHERE c_merchant_id = $1 and ts_deleted_at is null AND c_deleted_by is null
 		ORDER BY ts_created_at DESC
 	`
 
