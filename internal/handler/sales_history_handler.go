@@ -76,8 +76,8 @@ type SalesGroupedDetailHistory struct {
 }
 
 // fetchProductDetails fetches product information from the external product API using the shared helper
-func (h *SalesHistoryHandler) fetchProductDetails() (map[string]Product, error) {
-	return fetchProductDetailsInternal(h.Config.ProductServiceURL, "")
+func (h *SalesHistoryHandler) fetchProductDetails(authHeader string) (map[string]Product, error) {
+	return fetchProductDetailsInternal(h.Config.ProductServiceURL, authHeader)
 }
 
 func (h *SalesHistoryHandler) GetSalesHistory(c *gin.Context) {
@@ -183,7 +183,7 @@ func (h *SalesHistoryHandler) GetSalesHistory(c *gin.Context) {
 	}
 
 	// Fetch product details from external API
-	productMap, err := h.fetchProductDetails()
+	productMap, err := h.fetchProductDetails(authHeader)
 	if err != nil {
 		slog.Warn("Failed to fetch product details, continuing without product info", "error", err)
 		// Continue without product details - they will be empty strings
@@ -318,7 +318,7 @@ func (h *SalesHistoryHandler) GetSalesHistoryTodayGrouped(c *gin.Context) {
 	}
 
 	// Fetch product details from external API
-	productMap, err := h.fetchProductDetails()
+	productMap, err := h.fetchProductDetails(authHeader)
 	if err != nil {
 		slog.Warn("Failed to fetch product details, continuing without product info", "error", err)
 		productMap = make(map[string]Product)

@@ -27,8 +27,8 @@ func NewStockHandler(db *pgxpool.Pool, cfg *config.Config) *StockHandler {
 }
 
 // fetchProductDetails fetches product information from the external product API using the shared helper
-func (h *StockHandler) fetchProductDetails() (map[string]Product, error) {
-	return fetchProductDetailsInternal(h.Config.ProductServiceURL, "")
+func (h *StockHandler) fetchProductDetails(authHeader string) (map[string]Product, error) {
+	return fetchProductDetailsInternal(h.Config.ProductServiceURL, authHeader)
 }
 
 type StockResponse struct {
@@ -178,7 +178,8 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 	}
 
 	// Fetch product details from external API
-	productMap, err := h.fetchProductDetails()
+	authHeader := c.GetHeader("Authorization")
+	productMap, err := h.fetchProductDetails(authHeader)
 	if err != nil {
 		slog.Warn("Failed to fetch product details, continuing without product info", "error", err)
 		// Continue without product details - they will be empty strings
