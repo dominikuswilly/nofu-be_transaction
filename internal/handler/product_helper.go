@@ -13,9 +13,9 @@ type Product struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Price       int    `json:"price"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
-	CreatedBy   string `json:"created_by"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+	CreatedBy   string `json:"createdBy"`
 	URL         string `json:"url"`
 	Currency    string `json:"currency"`
 	Stock       int    `json:"stock"`
@@ -56,11 +56,18 @@ func fetchProductDetailsInternal(productServiceURL string, authHeader string) (m
 		return nil, fmt.Errorf("product API returned status %d", resp.StatusCode)
 	}
 
-	var products []Product
-	if err := json.NewDecoder(resp.Body).Decode(&products); err != nil {
+	// Decode the new response structure with data wrapper
+	var apiResponse struct {
+		Data            []Product `json:"data"`
+		ResponseCode    string    `json:"responseCode"`
+		ResponseMessage string    `json:"responseMessage"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
 		slog.Error("Failed to decode product data", "error", err)
 		return nil, fmt.Errorf("failed to decode products: %w", err)
 	}
+
+	products := apiResponse.Data
 
 	// Create a map for quick lookup by product ID
 	productMap := make(map[string]Product)
