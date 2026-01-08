@@ -56,15 +56,74 @@ type StockDetail struct {
 
 // Product struct is now defined in product_helper.go
 
+type StockMasterSummaryResponse struct {
+	ResponseCode    string            `json:"responseCode"`
+	ResponseMessage string            `json:"responseMessage"`
+	Data            []StockMasterData `json:"data"`
+}
+
+type StockMasterData struct {
+	MerchantID string `json:"merchantId"`
+	GivenBy    string `json:"givenBy"`
+	CreatedBy  string `json:"createdBy"`
+	CreatedAt  string `json:"createdAt"`
+}
+
 func (h *StockHandler) GetStock(c *gin.Context) {
 	ctx := c.Request.Context()
 	merchantID := c.Query("merchant_id")
 	dateParam := c.Query("date") // Optional: format YYYY-MM-DD
+	timeParam := c.Query("time") // New logic: if merchant_id is empty, filter by current date if today exists
 
-	slog.Info("GetStock called", "merchant_id", merchantID, "date", dateParam)
+	slog.Info("GetStock called", "merchant_id", merchantID, "date", dateParam, "time", timeParam)
 
 	if merchantID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "merchant_id is required"})
+		var query string
+		if timeParam != "" {
+			query = `
+				SELECT c_merchant_id, c_admin_id, c_created_by, ts_created_at
+				FROM stock_master
+				WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
+				AND DATE(ts_created_at) = CURRENT_DATE
+			`
+		} else {
+			query = `
+				SELECT c_merchant_id, c_admin_id, c_created_by, ts_created_at
+				FROM stock_master
+				WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
+			`
+		}
+
+		rows, err := h.DB.Query(ctx, query)
+		if err != nil {
+			slog.Error("Failed to query stock master summary", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		defer rows.Close()
+
+		var stockMasters []StockMasterData
+		for rows.Next() {
+			var sm StockMasterData
+			var createdAt time.Time
+			if err := rows.Scan(&sm.MerchantID, &sm.GivenBy, &sm.CreatedBy, &createdAt); err != nil {
+				slog.Error("Failed to scan stock master row", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				return
+			}
+			sm.CreatedAt = createdAt.Format("2006-01-02 15:04:05")
+			stockMasters = append(stockMasters, sm)
+		}
+
+		if stockMasters == nil {
+			stockMasters = []StockMasterData{}
+		}
+
+		c.JSON(http.StatusOK, StockMasterSummaryResponse{
+			ResponseCode:    "200",
+			ResponseMessage: "success",
+			Data:            stockMasters,
+		})
 		return
 	}
 
