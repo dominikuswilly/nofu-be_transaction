@@ -76,6 +76,12 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 			}
 		}
 
+		// Internal routes
+		internal := api.Group("/internal")
+		{
+			internal.GET("/stock", stockHandler.GetStock)
+		}
+
 	}
 
 	return &Server{
