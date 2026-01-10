@@ -87,14 +87,14 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 			query = `
 				SELECT c_id, c_merchant_id, c_admin_id, c_created_by, c_status, ts_created_at
 				FROM stock_master
-				WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL and c_status = 'approved by merchant'
+				WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
 				AND DATE(ts_created_at) = CURRENT_DATE
 			`
 		} else {
 			query = `
 				SELECT c_id, c_merchant_id, c_admin_id, c_created_by, c_status, ts_created_at
 				FROM stock_master
-				WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL and c_status = 'approved by merchant'
+				WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
 			`
 		}
 
@@ -150,7 +150,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 			with CTE_STOCK_MASTER as (
 				select t.c_id , t.c_admin_id , t.c_merchant_id , t.ts_created_at , t.c_created_by, t.c_status 
 				from stock_master t 
-				where t.c_merchant_id = $1 AND DATE(t.ts_created_at) = $2 and t.c_status = 'approved by merchant'
+				where t.c_merchant_id = $1 AND DATE(t.ts_created_at) = $2
 			)
 			select 
 				A.c_id, 
@@ -173,7 +173,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 			with CTE_STOCK_MASTER as (
 				select t.c_id , t.c_admin_id , t.c_merchant_id , t.ts_created_at , t.c_created_by, t.c_status 
 				from stock_master t 
-				where t.c_merchant_id = $1 and t.c_status = 'approved by merchant'
+				where t.c_merchant_id = $1
 				AND DATE(t.ts_created_at) = CURRENT_DATE
 			)
 			select 
