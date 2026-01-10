@@ -150,7 +150,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 			with CTE_STOCK_MASTER as (
 				select t.c_id , t.c_admin_id , t.c_merchant_id , t.ts_created_at , t.c_created_by, t.c_status 
 				from stock_master t 
-				where t.c_merchant_id = $1 AND DATE(t.ts_created_at) = $2
+				where t.c_merchant_id = $1 AND DATE(t.ts_created_at) = $2 AND ts_deleted_at IS NULL AND c_deleted_by IS NULL
 			)
 			select 
 				A.c_id, 
@@ -173,7 +173,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 			with CTE_STOCK_MASTER as (
 				select t.c_id , t.c_admin_id , t.c_merchant_id , t.ts_created_at , t.c_created_by, t.c_status 
 				from stock_master t 
-				where t.c_merchant_id = $1
+				where t.c_merchant_id = $1 AND ts_deleted_at IS NULL AND c_deleted_by IS NULL
 				AND DATE(t.ts_created_at) = CURRENT_DATE
 			)
 			select 
