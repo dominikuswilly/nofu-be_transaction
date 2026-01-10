@@ -40,6 +40,7 @@ type StockResponse struct {
 type StockData struct {
 	MerchantID  string        `json:"merchantId"`
 	GivenBy     string        `json:"givenBy"`
+	Status      string        `json:"status"`
 	StockDetail []StockDetail `json:"stockDetail"`
 	CreatedAt   string        `json:"createdAt"`
 }
@@ -66,6 +67,7 @@ type StockMasterData struct {
 	MerchantID string `json:"merchantId"`
 	GivenBy    string `json:"givenBy"`
 	CreatedBy  string `json:"createdBy"`
+	Status     string `json:"status"`
 	CreatedAt  string `json:"createdAt"`
 }
 
@@ -81,14 +83,14 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 		var query string
 		if timeParam != "" {
 			query = `
-				SELECT c_merchant_id, c_admin_id, c_created_by, ts_created_at
+				SELECT c_merchant_id, c_admin_id, c_created_by, c_status, ts_created_at
 				FROM stock_master
 				WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
 				AND DATE(ts_created_at) = CURRENT_DATE
 			`
 		} else {
 			query = `
-				SELECT c_merchant_id, c_admin_id, c_created_by, ts_created_at
+				SELECT c_merchant_id, c_admin_id, c_created_by, c_status, ts_created_at
 				FROM stock_master
 				WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
 			`
@@ -106,7 +108,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 		for rows.Next() {
 			var sm StockMasterData
 			var createdAt time.Time
-			if err := rows.Scan(&sm.MerchantID, &sm.GivenBy, &sm.CreatedBy, &createdAt); err != nil {
+			if err := rows.Scan(&sm.MerchantID, &sm.GivenBy, &sm.CreatedBy, &sm.Status, &createdAt); err != nil {
 				slog.Error("Failed to scan stock master row", "error", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 				return
@@ -144,7 +146,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 		// Use provided date
 		query = `
 			with CTE_STOCK_MASTER as (
-				select t.c_id , t.c_admin_id , t.c_merchant_id , t.ts_created_at , t.c_created_by 
+				select t.c_id , t.c_admin_id , t.c_merchant_id , t.ts_created_at , t.c_created_by, t.c_status 
 				from stock_master t 
 				where t.c_merchant_id = $1 AND DATE(t.ts_created_at) = $2
 			)
@@ -156,7 +158,8 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 				A.c_currency,
 				B.c_merchant_id, 
 				B.c_created_by,
-				B.ts_created_at
+				B.ts_created_at,
+				B.c_status
 			from stock_detail A
 			inner join CTE_STOCK_MASTER B on B.c_id = A.c_stock_id 
 			where A.c_stock_id in (select A1.c_id from CTE_STOCK_MASTER A1)
@@ -165,7 +168,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 	} else {
 		query = `
 			with CTE_STOCK_MASTER as (
-				select t.c_id , t.c_admin_id , t.c_merchant_id , t.ts_created_at , t.c_created_by 
+				select t.c_id , t.c_admin_id , t.c_merchant_id , t.ts_created_at , t.c_created_by, t.c_status 
 				from stock_master t 
 				where t.c_merchant_id = $1 
 				AND DATE(t.ts_created_at) = CURRENT_DATE
@@ -178,7 +181,8 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 				A.c_currency,
 				B.c_merchant_id, 
 				B.c_created_by,
-				B.ts_created_at
+				B.ts_created_at,
+				B.c_status
 			from stock_detail A
 			inner join CTE_STOCK_MASTER B on B.c_id = A.c_stock_id 
 			where A.c_stock_id in (select A1.c_id from CTE_STOCK_MASTER A1)
@@ -196,7 +200,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 	defer rows.Close()
 
 	var stockDetails []StockDetail
-	var merchantIDDb, createdByDb string
+	var merchantIDDb, createdByDb, statusDb string
 	var createdAtDb time.Time
 
 	firstRow := true
@@ -207,7 +211,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 		var qty int32
 		var currency string
 
-		if err := rows.Scan(&id, &productID, &priceSell, &qty, &currency, &merchantIDDb, &createdByDb, &createdAtDb); err != nil {
+		if err := rows.Scan(&id, &productID, &priceSell, &qty, &currency, &merchantIDDb, &createdByDb, &createdAtDb, &statusDb); err != nil {
 			slog.Error("Failed to scan row", "error", err, "merchant_id", merchantID)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
@@ -270,6 +274,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 		Data: StockData{
 			MerchantID:  merchantIDDb,
 			GivenBy:     createdByDb,
+			Status:      statusDb,
 			StockDetail: stockDetails,
 			CreatedAt:   createdAtDb.Format("2006-01-02 15:04:05"),
 		},

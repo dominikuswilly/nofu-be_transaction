@@ -10,6 +10,7 @@ type StockMaster struct {
 	CAdminID       string    // c_admin_id - based on authorization claims.sub
 	CPaymentMethod string    // c_payment_method
 	DTotalPayment  float64   // d_total_payment
+	CStatus        string    // c_status
 	TsCreatedAt    time.Time // ts_created_at - auto-generated
 }
 
