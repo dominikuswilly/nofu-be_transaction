@@ -13,6 +13,8 @@ type StockMaster struct {
 	CStatus        string    // c_status
 	CUpdatedBy     string    // c_updated_by
 	TsUpdatedAt    time.Time // ts_updated_at
+	CDeletedBy     string    // c_deleted_by
+	TsDeletedAt    time.Time // ts_deleted_at
 	TsCreatedAt    time.Time // ts_created_at - auto-generated
 }
 

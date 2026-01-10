@@ -510,13 +510,26 @@ func (r *StockRepository) DeleteSalesDefectDetail(ctx context.Context, productID
 
 // UpdateStockStatus updates the status of a stock master record
 func (r *StockRepository) UpdateStockStatus(ctx context.Context, stockID string, status string, updatedBy string) error {
-	query := `
-		UPDATE stock_master
-		SET c_status = $1,
-			c_updated_by = $2,
-			ts_updated_at = NOW()
-		WHERE c_id = $3
-	`
+	var query string
+	if status == "rejected by merchant" {
+		query = `
+			UPDATE stock_master
+			SET c_status = $1,
+				c_updated_by = $2,
+				ts_updated_at = NOW(),
+				ts_deleted_at = NOW(),
+				c_deleted_by = $2
+			WHERE c_id = $3
+		`
+	} else {
+		query = `
+			UPDATE stock_master
+			SET c_status = $1,
+				c_updated_by = $2,
+				ts_updated_at = NOW()
+			WHERE c_id = $3
+		`
+	}
 
 	result, err := r.db.Exec(ctx, query, status, updatedBy, stockID)
 	if err != nil {
