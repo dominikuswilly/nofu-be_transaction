@@ -68,11 +68,17 @@ func (h *StockProducerHandler) CreateStock(c *gin.Context) {
 		return
 	}
 
+	status := stockMsg.Status
+	if status == "" {
+		status = "waiting approval from merchant"
+	}
+
 	stockMaster := &models.StockMaster{
 		CID:         stockID.String(),
 		CCreatedBy:  stockMsg.UserID, // Using UserID for created_by
 		CMerchantID: stockMsg.MerchantID,
 		CAdminID:    stockMsg.UserID, // Using UserID for admin_id for now, adjust if needed
+		CStatus:     status,
 		TsCreatedAt: time.Now(),
 	}
 

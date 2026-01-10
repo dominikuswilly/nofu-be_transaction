@@ -30,6 +30,7 @@ type StockDetail struct {
 type StockMessage struct {
 	UserID       string               `json:"userId"`       // For c_created_by and c_admin_id
 	MerchantID   string               `json:"merchantId"`   // For c_merchant_id
+	Status       string               `json:"status"`       // For c_status
 	StockDetails []StockDetailMessage `json:"stockDetails"` // Stock items
 }
 

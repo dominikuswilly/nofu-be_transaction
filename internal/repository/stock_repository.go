@@ -22,8 +22,8 @@ func NewStockRepository(db *pgxpool.Pool) *StockRepository {
 // InsertStockMaster inserts a new stock master record
 func (r *StockRepository) InsertStockMaster(ctx context.Context, stockMaster *models.StockMaster) error {
 	query := `
-		INSERT INTO stock_master (c_id, c_created_by, c_merchant_id, c_admin_id, ts_created_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO stock_master (c_id, c_created_by, c_merchant_id, c_admin_id, c_status, ts_created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 
 	_, err := r.db.Exec(ctx, query,
@@ -31,6 +31,7 @@ func (r *StockRepository) InsertStockMaster(ctx context.Context, stockMaster *mo
 		stockMaster.CCreatedBy,
 		stockMaster.CMerchantID,
 		stockMaster.CAdminID,
+		stockMaster.CStatus,
 		stockMaster.TsCreatedAt,
 	)
 
@@ -94,14 +95,15 @@ func (r *StockRepository) InsertStockTransaction(ctx context.Context, stockMaste
 
 	// Insert stock master
 	masterQuery := `
-		INSERT INTO stock_master (c_id, c_created_by, c_merchant_id, c_admin_id, ts_created_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO stock_master (c_id, c_created_by, c_merchant_id, c_admin_id, c_status, ts_created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 	_, err = tx.Exec(ctx, masterQuery,
 		stockMaster.CID,
 		stockMaster.CCreatedBy,
 		stockMaster.CMerchantID,
 		stockMaster.CAdminID,
+		stockMaster.CStatus,
 		stockMaster.TsCreatedAt,
 	)
 	if err != nil {
