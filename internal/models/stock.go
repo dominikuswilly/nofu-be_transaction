@@ -4,7 +4,6 @@ import "time"
 
 // StockMaster represents the stock_master table
 type StockMaster struct {
-	ID             string    // c_id - serial/bigserial
 	CID            string    // c_id - UUID v7
 	CCreatedBy     string    // c_created_by - based on authorization claims.sub
 	CMerchantID    string    // c_merchant_id - from request body

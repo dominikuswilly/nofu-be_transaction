@@ -38,6 +38,7 @@ type StockResponse struct {
 }
 
 type StockData struct {
+	ID          string        `json:"id"`
 	MerchantID  string        `json:"merchantId"`
 	GivenBy     string        `json:"givenBy"`
 	Status      string        `json:"status"`
@@ -64,6 +65,7 @@ type StockMasterSummaryResponse struct {
 }
 
 type StockMasterData struct {
+	ID         string `json:"id"`
 	MerchantID string `json:"merchantId"`
 	GivenBy    string `json:"givenBy"`
 	CreatedBy  string `json:"createdBy"`
@@ -83,14 +85,14 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 		var query string
 		if timeParam != "" {
 			query = `
-				SELECT c_merchant_id, c_admin_id, c_created_by, c_status, ts_created_at
+				SELECT c_id, c_merchant_id, c_admin_id, c_created_by, c_status, ts_created_at
 				FROM stock_master
 				WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
 				AND DATE(ts_created_at) = CURRENT_DATE
 			`
 		} else {
 			query = `
-				SELECT c_merchant_id, c_admin_id, c_created_by, c_status, ts_created_at
+				SELECT c_id, c_merchant_id, c_admin_id, c_created_by, c_status, ts_created_at
 				FROM stock_master
 				WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
 			`
@@ -108,7 +110,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 		for rows.Next() {
 			var sm StockMasterData
 			var createdAt time.Time
-			if err := rows.Scan(&sm.MerchantID, &sm.GivenBy, &sm.CreatedBy, &sm.Status, &createdAt); err != nil {
+			if err := rows.Scan(&sm.ID, &sm.MerchantID, &sm.GivenBy, &sm.CreatedBy, &sm.Status, &createdAt); err != nil {
 				slog.Error("Failed to scan stock master row", "error", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 				return
@@ -159,7 +161,8 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 				B.c_merchant_id, 
 				B.c_created_by,
 				B.ts_created_at,
-				B.c_status
+				B.c_status,
+				B.c_id as stock_master_id
 			from stock_detail A
 			inner join CTE_STOCK_MASTER B on B.c_id = A.c_stock_id 
 			where A.c_stock_id in (select A1.c_id from CTE_STOCK_MASTER A1)
@@ -182,7 +185,8 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 				B.c_merchant_id, 
 				B.c_created_by,
 				B.ts_created_at,
-				B.c_status
+				B.c_status,
+				B.c_id as stock_master_id
 			from stock_detail A
 			inner join CTE_STOCK_MASTER B on B.c_id = A.c_stock_id 
 			where A.c_stock_id in (select A1.c_id from CTE_STOCK_MASTER A1)
@@ -200,7 +204,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 	defer rows.Close()
 
 	var stockDetails []StockDetail
-	var merchantIDDb, createdByDb, statusDb string
+	var merchantIDDb, createdByDb, statusDb, idDb string
 	var createdAtDb time.Time
 
 	firstRow := true
@@ -211,7 +215,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 		var qty int32
 		var currency string
 
-		if err := rows.Scan(&id, &productID, &priceSell, &qty, &currency, &merchantIDDb, &createdByDb, &createdAtDb, &statusDb); err != nil {
+		if err := rows.Scan(&id, &productID, &priceSell, &qty, &currency, &merchantIDDb, &createdByDb, &createdAtDb, &statusDb, &idDb); err != nil {
 			slog.Error("Failed to scan row", "error", err, "merchant_id", merchantID)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
@@ -272,6 +276,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 		ResponseCode:    "200",
 		ResponseMessage: "success",
 		Data: StockData{
+			ID:          idDb,
 			MerchantID:  merchantIDDb,
 			GivenBy:     createdByDb,
 			Status:      statusDb,

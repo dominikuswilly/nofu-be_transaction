@@ -129,7 +129,6 @@ func (h *StockProducerHandler) CreateStock(c *gin.Context) {
 		"responseCode":    "200",
 		"responseMessage": "Stock created successfully",
 		"data": gin.H{
-			"id":          stockMaster.ID,
 			"stockId":     stockMaster.CID,
 			"merchantId":  stockMsg.MerchantID,
 			"detailCount": len(stockDetails),
@@ -172,9 +171,9 @@ func (h *StockProducerHandler) UpdateStockStatus(c *gin.Context) {
 	stockID := c.Param("stock_master_id")
 	action := c.Query("action")
 
-	// Get userId from claims (set by AuthMiddleware)
-	userID, exists := c.Get("userId")
-	if !exists {
+	// Get userId from helper
+	userID := GetUserIDFromToken(c)
+	if userID == "" {
 		slog.Error("userId not found in context")
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"responseCode":    "401",
@@ -197,7 +196,7 @@ func (h *StockProducerHandler) UpdateStockStatus(c *gin.Context) {
 		return
 	}
 
-	err := h.StockRepo.UpdateStockStatus(c.Request.Context(), stockID, status, userID.(string))
+	err := h.StockRepo.UpdateStockStatus(c.Request.Context(), stockID, status, userID)
 	if err != nil {
 		slog.Error("Failed to update stock status", "error", err, "stock_id", stockID)
 		if strings.Contains(err.Error(), "no stock master found") {

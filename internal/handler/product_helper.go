@@ -1,10 +1,14 @@
 package handler
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 // Product represents the product data from external API
@@ -77,4 +81,51 @@ func fetchProductDetailsInternal(productServiceURL string, authHeader string) (m
 
 	slog.Info("Successfully fetched products", "count", len(products))
 	return productMap, nil
+}
+
+// GetUserIDFromToken extracts the user ID (sub) from the context or the Authorization header.
+func GetUserIDFromToken(c *gin.Context) string {
+	// 1. Try to get from context (set by AuthMiddleware)
+	// We check common keys that might be set by different middleware implementations
+	keys := []string{"sub", "userId", "merchantId", "merchant_id"}
+	for _, key := range keys {
+		if val, exists := c.Get(key); exists {
+			slog.Debug("Found user info in context", "key", key)
+			if strVal, ok := val.(string); ok {
+				return strVal
+			}
+			return fmt.Sprintf("%v", val)
+		}
+	}
+
+	// 2. Fallback: Manually parse the JWT from the Authorization header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		return ""
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	parts := strings.Split(tokenString, ".")
+	if len(parts) != 3 {
+		return ""
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		slog.Error("Failed to decode token payload", "error", err)
+		return ""
+	}
+
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		slog.Error("Failed to unmarshal token claims", "error", err)
+		return ""
+	}
+
+	if sub, ok := claims["sub"].(string); ok {
+		slog.Debug("Extracted sub from token manually")
+		return sub
+	}
+
+	return ""
 }
