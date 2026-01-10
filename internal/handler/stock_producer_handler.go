@@ -129,6 +129,7 @@ func (h *StockProducerHandler) CreateStock(c *gin.Context) {
 		"responseCode":    "200",
 		"responseMessage": "Stock created successfully",
 		"data": gin.H{
+			"id":          stockMaster.ID,
 			"stockId":     stockMaster.CID,
 			"merchantId":  stockMsg.MerchantID,
 			"detailCount": len(stockDetails),
