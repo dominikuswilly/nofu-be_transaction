@@ -52,6 +52,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 			{
 				stock.GET("", stockHandler.GetStock)
 				stock.POST("/create", stockProducerHandler.CreateStock)
+				stock.PATCH("/:stock_master_id", stockProducerHandler.UpdateStockStatus)
 			}
 
 			// Sales routes

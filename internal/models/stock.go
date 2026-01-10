@@ -11,6 +11,8 @@ type StockMaster struct {
 	CPaymentMethod string    // c_payment_method
 	DTotalPayment  float64   // d_total_payment
 	CStatus        string    // c_status
+	CUpdatedBy     string    // c_updated_by
+	TsUpdatedAt    time.Time // ts_updated_at
 	TsCreatedAt    time.Time // ts_created_at - auto-generated
 }
 

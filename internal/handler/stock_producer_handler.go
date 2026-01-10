@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -163,4 +164,58 @@ func (h *StockProducerHandler) validateStockMessage(msg *models.StockMessage) er
 	}
 
 	return nil
+}
+
+// UpdateStockStatus handles PATCH /api/transaction/stock/:stock_master_id?action=approve|reject
+func (h *StockProducerHandler) UpdateStockStatus(c *gin.Context) {
+	stockID := c.Param("stock_master_id")
+	action := c.Query("action")
+
+	// Get userId from claims (set by AuthMiddleware)
+	userID, exists := c.Get("userId")
+	if !exists {
+		slog.Error("userId not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"responseCode":    "401",
+			"responseMessage": "Unauthorized",
+		})
+		return
+	}
+
+	var status string
+	switch action {
+	case "approve":
+		status = "approved by merchant"
+	case "reject":
+		status = "rejected by merchant"
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{
+			"responseCode":    "400",
+			"responseMessage": "Invalid action. Use 'approve' or 'reject'",
+		})
+		return
+	}
+
+	err := h.StockRepo.UpdateStockStatus(c.Request.Context(), stockID, status, userID.(string))
+	if err != nil {
+		slog.Error("Failed to update stock status", "error", err, "stock_id", stockID)
+		if strings.Contains(err.Error(), "no stock master found") {
+			c.JSON(http.StatusNotFound, gin.H{
+				"responseCode":    "404",
+				"responseMessage": "Stock not found",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Internal server error",
+			"error":           err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"responseCode":    "200",
+		"responseMessage": fmt.Sprintf("Stock %sed successfully", action),
+	})
 }

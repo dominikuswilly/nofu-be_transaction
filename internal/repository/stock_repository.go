@@ -507,3 +507,26 @@ func (r *StockRepository) DeleteSalesDefectDetail(ctx context.Context, productID
 		"rows_affected", commandTag.RowsAffected())
 	return nil
 }
+
+// UpdateStockStatus updates the status of a stock master record
+func (r *StockRepository) UpdateStockStatus(ctx context.Context, stockID string, status string, updatedBy string) error {
+	query := `
+		UPDATE stock_master
+		SET c_status = $1,
+			c_updated_by = $2,
+			ts_updated_at = NOW()
+		WHERE c_id = $3
+	`
+
+	result, err := r.db.Exec(ctx, query, status, updatedBy, stockID)
+	if err != nil {
+		return fmt.Errorf("failed to update stock status: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("no stock master found with ID %s", stockID)
+	}
+
+	slog.Info("Updated stock status", "stock_id", stockID, "status", status, "updated_by", updatedBy)
+	return nil
+}
