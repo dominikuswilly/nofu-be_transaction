@@ -524,8 +524,15 @@ func (r *StockRepository) DeleteSalesDefectDetail(ctx context.Context, productID
 	return nil
 }
 
-// UpdateStockStatus updates the status of a stock master record
-func (r *StockRepository) UpdateStockStatus(ctx context.Context, stockID string, status string, updatedBy string) error {
+// UpdateStockStatus updates the status of a stock master record and inserts a history record
+func (r *StockRepository) UpdateStockStatus(ctx context.Context, stockID string, status string, updatedBy string, requestBody string) error {
+	// Begin transaction
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
 	var query string
 	if status == "rejected by merchant" {
 		query = `
@@ -547,13 +554,28 @@ func (r *StockRepository) UpdateStockStatus(ctx context.Context, stockID string,
 		`
 	}
 
-	result, err := r.db.Exec(ctx, query, status, updatedBy, stockID)
+	result, err := tx.Exec(ctx, query, status, updatedBy, stockID)
 	if err != nil {
 		return fmt.Errorf("failed to update stock status: %w", err)
 	}
 
 	if result.RowsAffected() == 0 {
 		return fmt.Errorf("no stock master found with ID %s", stockID)
+	}
+
+	// Insert stock master history
+	historyQuery := `
+		INSERT INTO stock_master_history (c_id, c_status, c_created_by, ts_created_at, c_stock_master_id, c_content)
+		VALUES (gen_random_uuid(), $1, $2, NOW(), $3, $4)
+	`
+	_, err = tx.Exec(ctx, historyQuery, status, updatedBy, stockID, requestBody)
+	if err != nil {
+		return fmt.Errorf("failed to insert stock master history: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	slog.Info("Updated stock status", "stock_id", stockID, "status", status, "updated_by", updatedBy)

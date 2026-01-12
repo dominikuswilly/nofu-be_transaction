@@ -215,7 +215,23 @@ func (h *StockProducerHandler) UpdateStockStatus(c *gin.Context) {
 		return
 	}
 
-	err := h.StockRepo.UpdateStockStatus(c.Request.Context(), stockID, status, userID)
+	// Create request body for history
+	requestData := map[string]string{
+		"stockId": stockID,
+		"action":  action,
+		"status":  status,
+	}
+	requestBodyJSON, err := json.Marshal(requestData)
+	if err != nil {
+		slog.Error("Failed to serialize request data", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Internal server error",
+		})
+		return
+	}
+
+	err = h.StockRepo.UpdateStockStatus(c.Request.Context(), stockID, status, userID, string(requestBodyJSON))
 	if err != nil {
 		slog.Error("Failed to update stock status", "error", err, "stock_id", stockID)
 		if strings.Contains(err.Error(), "no stock master found") {
