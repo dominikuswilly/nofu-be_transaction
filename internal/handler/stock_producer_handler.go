@@ -58,6 +58,13 @@ func (h *StockProducerHandler) CreateStock(c *gin.Context) {
 		"merchant_id", stockMsg.MerchantID,
 		"detail_count", len(stockMsg.StockDetails))
 
+	// Get userId from token for history tracking
+	userIDFromToken := GetUserIDFromToken(c)
+	if userIDFromToken == "" {
+		// Fallback to stockMsg.UserID if token extraction fails
+		userIDFromToken = stockMsg.UserID
+	}
+
 	// Prepare StockMaster
 	stockID, err := uuid.NewV7()
 	if err != nil {
@@ -76,7 +83,7 @@ func (h *StockProducerHandler) CreateStock(c *gin.Context) {
 
 	stockMaster := &models.StockMaster{
 		CID:         stockID.String(),
-		CCreatedBy:  stockMsg.UserID, // Using UserID for created_by
+		CCreatedBy:  userIDFromToken, // Using userID from token for created_by
 		CMerchantID: stockMsg.MerchantID,
 		CAdminID:    stockMsg.UserID, // Using UserID for admin_id for now, adjust if needed
 		CStatus:     status,

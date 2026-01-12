@@ -18,6 +18,15 @@ type StockMaster struct {
 	TsCreatedAt    time.Time // ts_created_at - auto-generated
 }
 
+// StockMasterHistory represents the stock_master_history table
+type StockMasterHistory struct {
+	CID            string    // c_id - UUID v7
+	CStatus        string    // c_status - status from stock_master
+	CCreatedBy     string    // c_created_by - based on authorization claims.sub
+	TsCreatedAt    time.Time // ts_created_at - current timestamp
+	CStockMasterID string    // c_stock_master_id - foreign key to stock_master.c_id
+}
+
 // StockDetail represents the stock_detail table
 type StockDetail struct {
 	CID         string  // c_id - UUID v7

@@ -110,6 +110,21 @@ func (r *StockRepository) InsertStockTransaction(ctx context.Context, stockMaste
 		return fmt.Errorf("failed to insert stock master: %w", err)
 	}
 
+	// Insert stock master history
+	historyQuery := `
+		INSERT INTO stock_master_history (c_id, c_status, c_created_by, ts_created_at, c_stock_master_id)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4)
+	`
+	_, err = tx.Exec(ctx, historyQuery,
+		stockMaster.CStatus,
+		stockMaster.CCreatedBy,
+		stockMaster.TsCreatedAt,
+		stockMaster.CID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert stock master history: %w", err)
+	}
+
 	// Insert stock details
 	if len(stockDetails) > 0 {
 		batch := &pgx.Batch{}
