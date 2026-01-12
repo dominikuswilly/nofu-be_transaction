@@ -53,6 +53,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 				stock.GET("", stockHandler.GetStock)
 				stock.POST("/create", stockProducerHandler.CreateStock)
 				stock.PATCH("/:stock_master_id", stockProducerHandler.UpdateStockStatus)
+				stock.GET("/:stock_master_id/history", stockHandler.GetStockHistory)
 			}
 
 			// Sales routes
