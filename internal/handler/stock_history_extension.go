@@ -54,7 +54,7 @@ func (h *StockHandler) GetStockHistory(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
-		hd.CreatedAt = createdAt.Format("2006-01-02 15:04:05")
+		hd.CreatedAt = createdAt.In(time.FixedZone("WIB", 7*3600)).Format("2006-01-02T15:04:05")
 		historyData = append(historyData, hd)
 	}
 

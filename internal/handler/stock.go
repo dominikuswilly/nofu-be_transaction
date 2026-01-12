@@ -116,7 +116,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 				return
 			}
 			loc := time.FixedZone("WIB", 7*3600)
-			sm.CreatedAt = createdAt.In(loc).Format("2006-01-02 15:04:05")
+			sm.CreatedAt = createdAt.In(loc).Format("2006-01-02T15:04:05")
 			stockMasters = append(stockMasters, sm)
 		}
 
@@ -284,7 +284,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 			GivenBy:     adminIDDb,
 			Status:      statusDb,
 			StockDetail: stockDetails,
-			CreatedAt:   createdAtDb.In(time.FixedZone("WIB", 7*3600)).Format("2006-01-02 15:04:05"),
+			CreatedAt:   createdAtDb.In(time.FixedZone("WIB", 7*3600)).Format("2006-01-02T15:04:05"),
 		},
 	}
 
