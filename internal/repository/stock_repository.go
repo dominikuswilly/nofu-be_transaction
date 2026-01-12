@@ -85,7 +85,7 @@ func (r *StockRepository) InsertStockDetails(ctx context.Context, stockDetails [
 }
 
 // InsertStockTransaction inserts stock master and details in a single transaction
-func (r *StockRepository) InsertStockTransaction(ctx context.Context, stockMaster *models.StockMaster, stockDetails []models.StockDetail) error {
+func (r *StockRepository) InsertStockTransaction(ctx context.Context, stockMaster *models.StockMaster, stockDetails []models.StockDetail, requestBody string) error {
 	// Begin transaction
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -112,14 +112,15 @@ func (r *StockRepository) InsertStockTransaction(ctx context.Context, stockMaste
 
 	// Insert stock master history
 	historyQuery := `
-		INSERT INTO stock_master_history (c_id, c_status, c_created_by, ts_created_at, c_stock_master_id)
-		VALUES (gen_random_uuid(), $1, $2, $3, $4)
+		INSERT INTO stock_master_history (c_id, c_status, c_created_by, ts_created_at, c_stock_master_id, c_content)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)
 	`
 	_, err = tx.Exec(ctx, historyQuery,
 		stockMaster.CStatus,
 		stockMaster.CCreatedBy,
 		stockMaster.TsCreatedAt,
 		stockMaster.CID,
+		requestBody,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert stock master history: %w", err)

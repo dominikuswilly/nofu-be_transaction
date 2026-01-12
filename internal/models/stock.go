@@ -25,6 +25,7 @@ type StockMasterHistory struct {
 	CCreatedBy     string    // c_created_by - based on authorization claims.sub
 	TsCreatedAt    time.Time // ts_created_at - current timestamp
 	CStockMasterID string    // c_stock_master_id - foreign key to stock_master.c_id
+	CContent       string    // c_content - request body as JSON
 }
 
 // StockDetail represents the stock_detail table

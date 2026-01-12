@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -115,8 +116,19 @@ func (h *StockProducerHandler) CreateStock(c *gin.Context) {
 		})
 	}
 
+	// Serialize request body for history
+	requestBodyJSON, err := json.Marshal(stockMsg)
+	if err != nil {
+		slog.Error("Failed to serialize request body", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Internal server error",
+		})
+		return
+	}
+
 	// Save to database using transaction
-	err = h.StockRepo.InsertStockTransaction(c.Request.Context(), stockMaster, stockDetails)
+	err = h.StockRepo.InsertStockTransaction(c.Request.Context(), stockMaster, stockDetails, string(requestBodyJSON))
 	if err != nil {
 		slog.Error("Failed to save stock transaction", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{

@@ -114,7 +114,7 @@ func (c *StockConsumer) handleMessage(body []byte) error {
 
 	// Insert into database using transaction
 	ctx := context.Background()
-	if err := c.stockRepo.InsertStockTransaction(ctx, stockMaster, stockDetails); err != nil {
+	if err := c.stockRepo.InsertStockTransaction(ctx, stockMaster, stockDetails, string(body)); err != nil {
 		slog.Error("Failed to insert stock transaction", "error", err)
 		return fmt.Errorf("failed to insert stock transaction: %w", err)
 	}
