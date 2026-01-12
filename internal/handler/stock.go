@@ -115,7 +115,8 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 				return
 			}
-			sm.CreatedAt = createdAt.Format("2006-01-02 15:04:05")
+			loc := time.FixedZone("WIB", 7*3600)
+			sm.CreatedAt = createdAt.In(loc).Format("2006-01-02 15:04:05")
 			stockMasters = append(stockMasters, sm)
 		}
 
@@ -283,7 +284,7 @@ func (h *StockHandler) GetStock(c *gin.Context) {
 			GivenBy:     adminIDDb,
 			Status:      statusDb,
 			StockDetail: stockDetails,
-			CreatedAt:   createdAtDb.Format("2006-01-02 15:04:05"),
+			CreatedAt:   createdAtDb.In(time.FixedZone("WIB", 7*3600)).Format("2006-01-02 15:04:05"),
 		},
 	}
 
