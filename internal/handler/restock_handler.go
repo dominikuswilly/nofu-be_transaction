@@ -381,7 +381,7 @@ func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
 	for i, r := range restocks {
 		updatedAt := ""
 		if r.TsUpdatedAt != nil {
-			updatedAt = r.TsUpdatedAt.In(loc).Format("2006-01-02 15:04:05")
+			updatedAt = r.TsUpdatedAt.In(loc).Format("2006-01-02T15:04:05")
 		}
 
 		data[i] = RestockStatusData{
@@ -389,7 +389,7 @@ func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
 			MerchantID: r.CMerchantID,
 			Status:     r.CStatus,
 			CreatedBy:  r.CCreatedBy,
-			CreatedAt:  r.TsCreatedAt.In(loc).Format("2006-01-02 15:04:05"),
+			CreatedAt:  r.TsCreatedAt.In(loc).Format("2006-01-02T15:04:05"),
 			UpdatedBy:  r.CUpdatedBy,
 			UpdatedAt:  updatedAt,
 			Longitude:  r.DLongitude,
