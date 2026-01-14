@@ -197,3 +197,51 @@ func (r *RestockRepository) GetRestockHistory(ctx context.Context, restockID str
 
 	return results, nil
 }
+
+// GetAllRestockToday retrieves all restock requests for the current day across all merchants
+func (r *RestockRepository) GetAllRestockToday(ctx context.Context) ([]models.StockRestockMaster, error) {
+	query := `
+		SELECT 
+			c_id, c_merchant_id, c_status, c_created_by, ts_created_at, 
+			COALESCE(c_updated_by, '') as c_updated_by, 
+			ts_updated_at,
+			COALESCE(d_longitude, 0) as d_longitude,
+			COALESCE(d_latitude, 0) as d_latitude
+		FROM stock_restock_master
+		WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
+		AND DATE(ts_created_at) = CURRENT_DATE
+		ORDER BY ts_created_at DESC
+	`
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query restock master for admin: %w", err)
+	}
+	defer rows.Close()
+
+	var results []models.StockRestockMaster
+	for rows.Next() {
+		var m models.StockRestockMaster
+		err := rows.Scan(
+			&m.CID,
+			&m.CMerchantID,
+			&m.CStatus,
+			&m.CCreatedBy,
+			&m.TsCreatedAt,
+			&m.CUpdatedBy,
+			&m.TsUpdatedAt,
+			&m.DLongitude,
+			&m.DLatitude,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan restock master for admin: %w", err)
+		}
+		results = append(results, m)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error for admin: %w", err)
+	}
+
+	return results, nil
+}

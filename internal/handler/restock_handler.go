@@ -357,3 +357,49 @@ func (h *RestockHandler) GetRestockHistory(c *gin.Context) {
 		Data:            data,
 	})
 }
+
+func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
+	restocks, err := h.repo.GetAllRestockToday(c.Request.Context())
+	if err != nil {
+		slog.Error("Failed to fetch admin restock status", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Failed to fetch admin restock status",
+		})
+		return
+	}
+
+	// Get timezone from context
+	loc := time.UTC
+	if val, exists := c.Get("timezone"); exists {
+		if l, ok := val.(*time.Location); ok {
+			loc = l
+		}
+	}
+
+	data := make([]RestockStatusData, len(restocks))
+	for i, r := range restocks {
+		updatedAt := ""
+		if r.TsUpdatedAt != nil {
+			updatedAt = r.TsUpdatedAt.In(loc).Format("2006-01-02 15:04:05")
+		}
+
+		data[i] = RestockStatusData{
+			ID:         r.CID,
+			MerchantID: r.CMerchantID,
+			Status:     r.CStatus,
+			CreatedBy:  r.CCreatedBy,
+			CreatedAt:  r.TsCreatedAt.In(loc).Format("2006-01-02 15:04:05"),
+			UpdatedBy:  r.CUpdatedBy,
+			UpdatedAt:  updatedAt,
+			Longitude:  r.DLongitude,
+			Latitude:   r.DLatitude,
+		}
+	}
+
+	c.JSON(http.StatusOK, RestockStatusResponse{
+		ResponseCode:    "200",
+		ResponseMessage: "success",
+		Data:            data,
+	})
+}
