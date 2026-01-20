@@ -24,6 +24,7 @@ type Config struct {
 	SalesQueue         string
 	SalesExchange      string
 	SalesRoutingKey    string
+	CustomerServiceURL string
 }
 
 func LoadConfig() (*Config, error) {
@@ -47,6 +48,7 @@ func LoadConfig() (*Config, error) {
 		SalesQueue:         os.Getenv("SALES_QUEUE"),
 		SalesExchange:      os.Getenv("SALES_EXCHANGE"),
 		SalesRoutingKey:    os.Getenv("SALES_ROUTING_KEY"),
+		CustomerServiceURL: os.Getenv("CUSTOMER_SERVICE_URL"),
 	}
 
 	if cfg.DBHost == "" || cfg.DBUser == "" {

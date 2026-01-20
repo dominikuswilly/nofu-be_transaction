@@ -37,15 +37,17 @@ type CreateRestockRequest struct {
 }
 
 type RestockStatusData struct {
-	ID         string  `json:"id"`
-	MerchantID string  `json:"merchantId"`
-	Status     string  `json:"status"`
-	CreatedBy  string  `json:"createdBy"`
-	CreatedAt  string  `json:"createdAt"`
-	UpdatedBy  string  `json:"updatedBy"`
-	UpdatedAt  string  `json:"updatedAt"`
-	Longitude  float64 `json:"longitude"`
-	Latitude   float64 `json:"latitude"`
+	ID               string  `json:"id"`
+	MerchantID       string  `json:"merchantId"`
+	MerchantUsername string  `json:"merchantUsername"`
+	MerchantName     string  `json:"merchantName"`
+	Status           string  `json:"status"`
+	CreatedBy        string  `json:"createdBy"`
+	CreatedAt        string  `json:"createdAt"`
+	UpdatedBy        string  `json:"updatedBy"`
+	UpdatedAt        string  `json:"updatedAt"`
+	Longitude        float64 `json:"longitude"`
+	Latitude         float64 `json:"latitude"`
 }
 
 type RestockStatusResponse struct {
@@ -234,6 +236,18 @@ func (h *RestockHandler) GetRestock(c *gin.Context) {
 		}
 	}
 
+	// Fetch merchant details for GetRestock (all restocks belong to the same merchant)
+	var merchName, merchUsername string
+	if len(restocks) > 0 {
+		merchant, err := fetchMerchantDetails(h.cfg.CustomerServiceURL, merchantID, authHeader)
+		if err != nil {
+			slog.Warn("Failed to fetch merchant details, continuing with empty merchant info", "error", err, "merchantID", merchantID)
+		} else if merchant != nil {
+			merchName = merchant.Name
+			merchUsername = merchant.Username
+		}
+	}
+
 	data := make([]RestockStatusData, len(restocks))
 	for i, r := range restocks {
 		updatedAt := ""
@@ -242,15 +256,17 @@ func (h *RestockHandler) GetRestock(c *gin.Context) {
 		}
 
 		data[i] = RestockStatusData{
-			ID:         r.CID,
-			MerchantID: r.CMerchantID,
-			Status:     r.CStatus,
-			CreatedBy:  r.CCreatedBy,
-			CreatedAt:  r.TsCreatedAt.In(loc).Format("2006-01-02T15:04:05"),
-			UpdatedBy:  r.CUpdatedBy,
-			UpdatedAt:  updatedAt,
-			Longitude:  r.DLongitude,
-			Latitude:   r.DLatitude,
+			ID:               r.CID,
+			MerchantID:       r.CMerchantID,
+			MerchantUsername: merchUsername,
+			MerchantName:     merchName,
+			Status:           r.CStatus,
+			CreatedBy:        r.CCreatedBy,
+			CreatedAt:        r.TsCreatedAt.In(loc).Format("2006-01-02T15:04:05"),
+			UpdatedBy:        r.CUpdatedBy,
+			UpdatedAt:        updatedAt,
+			Longitude:        r.DLongitude,
+			Latitude:         r.DLatitude,
 		}
 	}
 
@@ -377,6 +393,10 @@ func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
 		}
 	}
 
+	// Fetch merchant details (GetAdminRestock might have multiple merchants)
+	authHeader := c.GetHeader("Authorization")
+	merchantCache := make(map[string]*Merchant)
+
 	data := make([]RestockStatusData, len(restocks))
 	for i, r := range restocks {
 		updatedAt := ""
@@ -384,16 +404,42 @@ func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
 			updatedAt = r.TsUpdatedAt.In(loc).Format("2006-01-02T15:04:05")
 		}
 
+		merchName := ""
+		merchUsername := ""
+
+		if r.CMerchantID != "" {
+			if merchant, ok := merchantCache[r.CMerchantID]; ok {
+				if merchant != nil {
+					merchName = merchant.Name
+					merchUsername = merchant.Username
+				}
+			} else {
+				merchant, err := fetchMerchantDetails(h.cfg.CustomerServiceURL, r.CMerchantID, authHeader)
+				if err != nil {
+					slog.Warn("Failed to fetch merchant details for admin view", "error", err, "merchantID", r.CMerchantID)
+					merchantCache[r.CMerchantID] = nil // Cache nil to avoid repeated failed calls
+				} else {
+					merchantCache[r.CMerchantID] = merchant
+					if merchant != nil {
+						merchName = merchant.Name
+						merchUsername = merchant.Username
+					}
+				}
+			}
+		}
+
 		data[i] = RestockStatusData{
-			ID:         r.CID,
-			MerchantID: r.CMerchantID,
-			Status:     r.CStatus,
-			CreatedBy:  r.CCreatedBy,
-			CreatedAt:  r.TsCreatedAt.In(loc).Format("2006-01-02T15:04:05"),
-			UpdatedBy:  r.CUpdatedBy,
-			UpdatedAt:  updatedAt,
-			Longitude:  r.DLongitude,
-			Latitude:   r.DLatitude,
+			ID:               r.CID,
+			MerchantID:       r.CMerchantID,
+			MerchantUsername: merchUsername,
+			MerchantName:     merchName,
+			Status:           r.CStatus,
+			CreatedBy:        r.CCreatedBy,
+			CreatedAt:        r.TsCreatedAt.In(loc).Format("2006-01-02T15:04:05"),
+			UpdatedBy:        r.CUpdatedBy,
+			UpdatedAt:        updatedAt,
+			Longitude:        r.DLongitude,
+			Latitude:         r.DLatitude,
 		}
 	}
 
