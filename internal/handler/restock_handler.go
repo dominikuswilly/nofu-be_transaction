@@ -83,6 +83,34 @@ type RestockHistoryResponse struct {
 	Data            []RestockHistoryData `json:"data"`
 }
 
+type RestockIDDetailItem struct {
+	ID              string `json:"id"`
+	ProductName     string `json:"productName"`
+	ProductID       string `json:"productId"`
+	ProductImageUrl string `json:"productImageUrl"`
+	Qty             int    `json:"qty"`
+}
+
+type RestockByIDLocation struct {
+	Longitude float64 `json:"longitude"`
+	Latitude  float64 `json:"latitude"`
+}
+
+type RestockByIDData struct {
+	ID            string                `json:"id"`
+	TotalQty      int                   `json:"totalQty"`
+	TotalItem     int                   `json:"totalItem"`
+	Status        string                `json:"status"`
+	Location      RestockByIDLocation   `json:"location"`
+	RestockDetail []RestockIDDetailItem `json:"restockDetail"`
+}
+
+type RestockByIDResponse struct {
+	ResponseCode    string          `json:"responseCode"`
+	ResponseMessage string          `json:"responseMessage"`
+	Data            RestockByIDData `json:"data"`
+}
+
 // Product struct is already defined in stock.go in the same package
 
 func (h *RestockHandler) CreateRestock(c *gin.Context) {
@@ -329,6 +357,90 @@ func (h *RestockHandler) GetRestockDetail(c *gin.Context) {
 		ResponseMessage: "success",
 		Data:            data,
 	})
+}
+
+func (h *RestockHandler) GetRestockByID(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"responseCode": "400", "responseMessage": "ID is required"})
+		return
+	}
+
+	// 1. Fetch master record
+	master, err := h.repo.GetRestockByID(c.Request.Context(), id)
+	if err != nil {
+		slog.Error("Failed to fetch restock master", "error", err, "id", id)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Failed to fetch restock info",
+		})
+		return
+	}
+	if master == nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"responseCode":    "404",
+			"responseMessage": "Restock not found",
+		})
+		return
+	}
+
+	// 2. Fetch detail records
+	details, err := h.repo.GetRestockDetail(c.Request.Context(), id)
+	if err != nil {
+		slog.Error("Failed to fetch restock details", "error", err, "id", id)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Failed to fetch restock details",
+		})
+		return
+	}
+
+	// 3. Fetch product details from external API
+	authHeader := c.GetHeader("Authorization")
+	productMap, err := h.fetchProductDetails(authHeader)
+	if err != nil {
+		slog.Warn("Failed to fetch product details, continuing without full product info", "error", err)
+		productMap = make(map[string]Product)
+	}
+
+	// 4. Map and calculate
+	restockDetails := make([]RestockIDDetailItem, len(details))
+	totalQty := 0
+	for i, d := range details {
+		productName := ""
+		productImageUrl := ""
+		if p, found := productMap[d.CProductID]; found {
+			productName = p.Name
+			productImageUrl = p.URL // Mapping URL to productImageUrl
+		}
+
+		restockDetails[i] = RestockIDDetailItem{
+			ID:              d.CID,
+			ProductName:     productName,
+			ProductID:       d.CProductID,
+			ProductImageUrl: productImageUrl,
+			Qty:             d.IQty,
+		}
+		totalQty += d.IQty
+	}
+
+	response := RestockByIDResponse{
+		ResponseCode:    "200",
+		ResponseMessage: "success",
+		Data: RestockByIDData{
+			ID:        master.CID,
+			TotalQty:  totalQty,
+			TotalItem: len(details),
+			Status:    master.CStatus,
+			Location: RestockByIDLocation{
+				Longitude: master.DLongitude,
+				Latitude:  master.DLatitude,
+			},
+			RestockDetail: restockDetails,
+		},
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *RestockHandler) GetRestockHistory(c *gin.Context) {

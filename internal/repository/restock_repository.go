@@ -122,6 +122,41 @@ func (r *RestockRepository) GetRestockByMerchantID(ctx context.Context, merchant
 	return results, nil
 }
 
+// GetRestockByID retrieves a single restock request by its ID
+func (r *RestockRepository) GetRestockByID(ctx context.Context, id string) (*models.StockRestockMaster, error) {
+	query := `
+		SELECT 
+			c_id, c_merchant_id, c_status, c_created_by, ts_created_at, 
+			COALESCE(c_updated_by, '') as c_updated_by, 
+			ts_updated_at,
+			COALESCE(d_longitude, 0) as d_longitude,
+			COALESCE(d_latitude, 0) as d_latitude
+		FROM stock_restock_master
+		WHERE c_id = $1 AND ts_deleted_at is null AND c_deleted_by is null
+	`
+
+	var m models.StockRestockMaster
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&m.CID,
+		&m.CMerchantID,
+		&m.CStatus,
+		&m.CCreatedBy,
+		&m.TsCreatedAt,
+		&m.CUpdatedBy,
+		&m.TsUpdatedAt,
+		&m.DLongitude,
+		&m.DLatitude,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to query restock master by id: %w", err)
+	}
+
+	return &m, nil
+}
+
 // GetRestockDetail retrieves restock details for a specific restock request
 func (r *RestockRepository) GetRestockDetail(ctx context.Context, restockID string) ([]models.StockRestockDetail, error) {
 	query := `
