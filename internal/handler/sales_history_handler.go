@@ -447,45 +447,13 @@ func (h *SalesHistoryHandler) GetSalesReportSummary(c *gin.Context) {
 
 	slog.Info("GetSalesReportSummary called")
 
-	// 1. Extract info from Authorization header
-	authHeader := c.GetHeader("Authorization")
-	merchantID := ""
-	if authHeader != "" {
-		tokenString := ""
-		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-			tokenString = authHeader[7:]
-		} else {
-			tokenString = authHeader
-		}
-
-		parts := strings.Split(tokenString, ".")
-		if len(parts) == 3 {
-			payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-			if err == nil {
-				var claims map[string]interface{}
-				if err := json.Unmarshal(payload, &claims); err == nil {
-					if sub, ok := claims["sub"].(string); ok {
-						merchantID = sub
-					}
-				}
-			}
-		}
-	}
-
-	// Fallback to context (set by AuthMiddleware) if sub claim parsing failed for some reason
+	// 1. Extract merchantId from query parameter
+	merchantID := c.Query("merchantId")
 	if merchantID == "" {
-		if val, exists := c.Get("merchant_id"); exists {
-			if strVal, ok := val.(string); ok {
-				merchantID = strVal
-			}
-		}
-	}
-
-	if merchantID == "" {
-		slog.Error("merchant_id not found in context or token")
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"responseCode":    "401",
-			"responseMessage": "Unauthorized: merchant_id not found in token",
+		slog.Error("merchantId query parameter is required")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"responseCode":    "400",
+			"responseMessage": "merchantId query parameter is required",
 		})
 		return
 	}
