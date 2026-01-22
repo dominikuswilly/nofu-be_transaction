@@ -75,6 +75,17 @@ type SalesGroupedDetailHistory struct {
 	ProductImage  string `json:"productImage,omitempty"`
 }
 
+type SalesReportSummaryResponse struct {
+	ResponseCode    string                 `json:"responseCode"`
+	ResponseMessage string                 `json:"responseMessage"`
+	Data            SalesReportSummaryData `json:"data"`
+}
+
+type SalesReportSummaryData struct {
+	SubtotalPaymentAmount map[string]float64 `json:"subtotalPaymentAmount"`
+	TotalPaymentAmount    float64            `json:"totalPaymentAmount"`
+}
+
 // fetchProductDetails fetches product information from the external product API using the shared helper
 func (h *SalesHistoryHandler) fetchProductDetails(authHeader string) (map[string]Product, error) {
 	return fetchProductDetailsInternal(h.Config.ProductServiceURL, authHeader)
@@ -429,4 +440,88 @@ func (h *SalesHistoryHandler) GetBalance(c *gin.Context) {
 		"responseMessage": "success",
 		"data":            balance,
 	})
+}
+
+func (h *SalesHistoryHandler) GetSalesReportSummary(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	slog.Info("GetSalesReportSummary called")
+
+	// 1. Extract info from Authorization header
+	authHeader := c.GetHeader("Authorization")
+	merchantID := ""
+	if authHeader != "" {
+		tokenString := ""
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		} else {
+			tokenString = authHeader
+		}
+
+		parts := strings.Split(tokenString, ".")
+		if len(parts) == 3 {
+			payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+			if err == nil {
+				var claims map[string]interface{}
+				if err := json.Unmarshal(payload, &claims); err == nil {
+					if sub, ok := claims["sub"].(string); ok {
+						merchantID = sub
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback to context (set by AuthMiddleware) if sub claim parsing failed for some reason
+	if merchantID == "" {
+		if val, exists := c.Get("merchant_id"); exists {
+			if strVal, ok := val.(string); ok {
+				merchantID = strVal
+			}
+		}
+	}
+
+	if merchantID == "" {
+		slog.Error("merchant_id not found in context or token")
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"responseCode":    "401",
+			"responseMessage": "Unauthorized: merchant_id not found in token",
+		})
+		return
+	}
+
+	// Fetch daily sales records from repo
+	salesItems, err := h.SalesRepo.GetSalesReportSummaryData(ctx, merchantID)
+	if err != nil {
+		slog.Error("Failed to fetch sales report summary data", "error", err, "merchant_id", merchantID)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Internal server error",
+		})
+		return
+	}
+
+	// Business Logic: Calculate subtotals and total
+	subtotals := make(map[string]float64)
+	var totalAmount float64
+
+	for _, item := range salesItems {
+		paymentMethod := strings.ToLower(item.PaymentMethod)
+		subtotals[paymentMethod] += item.TotalPayment
+		totalAmount += item.TotalPayment
+	}
+
+	// Ensure all expected keys are present even if 0 if necessary,
+	// but based on example, we just include what's there.
+
+	response := SalesReportSummaryResponse{
+		ResponseCode:    "200",
+		ResponseMessage: "Success",
+		Data: SalesReportSummaryData{
+			SubtotalPaymentAmount: subtotals,
+			TotalPaymentAmount:    totalAmount,
+		},
+	}
+
+	c.JSON(http.StatusOK, response)
 }

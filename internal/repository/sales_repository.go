@@ -13,6 +13,16 @@ type SalesRepository struct {
 	db *pgxpool.Pool
 }
 
+// SalesReportItem represents a single row from the sales_master table for reporting purpose
+type SalesReportItem struct {
+	ID            string    `json:"id"`
+	CreatedAt     time.Time `json:"createdAt"`
+	CreatedBy     string    `json:"createdBy"`
+	MerchantID    string    `json:"merchantId"`
+	PaymentMethod string    `json:"paymentMethod"`
+	TotalPayment  float64   `json:"totalPayment"`
+}
+
 func NewSalesRepository(db *pgxpool.Pool) *SalesRepository {
 	return &SalesRepository{db: db}
 }
@@ -74,6 +84,39 @@ func (r *SalesRepository) GetMerchantBalance(ctx context.Context, merchantID str
 	}
 
 	return result, nil
+}
+
+// GetSalesReportSummaryData fetches individual sales records for today for a specific merchant
+func (r *SalesRepository) GetSalesReportSummaryData(ctx context.Context, merchantID string) ([]SalesReportItem, error) {
+	query := `
+		select c_id, ts_created_at, c_created_by, c_merchant_id, c_payment_method, d_total_payment 
+		from sales_master t 
+		where t.c_merchant_id = $1 
+		  AND DATE(t.ts_created_at) = CURRENT_DATE 
+		  AND t.ts_deleted_at is null 
+		  AND t.c_deleted_by is null
+	`
+
+	rows, err := r.db.Query(ctx, query, merchantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query sales report summary: %w", err)
+	}
+	defer rows.Close()
+
+	var items []SalesReportItem
+	for rows.Next() {
+		var item SalesReportItem
+		if err := rows.Scan(&item.ID, &item.CreatedAt, &item.CreatedBy, &item.MerchantID, &item.PaymentMethod, &item.TotalPayment); err != nil {
+			return nil, fmt.Errorf("failed to scan sales report item: %w", err)
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration error in sales report summary: %w", err)
+	}
+
+	return items, nil
 }
 
 // SalesHistoryDetail represents aggregated sales data by product
