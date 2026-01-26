@@ -654,8 +654,6 @@ func (h *RestockHandler) PatchRestock(c *gin.Context) {
 			return
 		}
 	}
-
-	})
 }
 
 func (h *RestockHandler) GetAdminRestockHistory(c *gin.Context) {
