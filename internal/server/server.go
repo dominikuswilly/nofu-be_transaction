@@ -85,10 +85,10 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 			internal.GET("/stock", stockHandler.GetStock)
 		}
 
-		// Admin routes
 		admin := api.Group("/admin")
 		{
 			admin.GET("/restock", restockHandler.GetAdminRestock)
+			admin.PATCH("/restock/:id", restockHandler.PatchRestock)
 			admin.GET("/sales/report/summary", salesHistoryHandler.GetSalesReportSummary)
 		}
 

@@ -280,3 +280,115 @@ func (r *RestockRepository) GetAllRestockToday(ctx context.Context) ([]models.St
 
 	return results, nil
 }
+
+// ApproveRestock updates the status of a restock request to APPROVED within a transaction
+func (r *RestockRepository) ApproveRestock(ctx context.Context, id, merchantID string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Validation Query
+	validationQuery := `
+		SELECT c_id 
+		FROM stock_restock_master 
+		WHERE c_id = $1
+		  AND c_merchant_id = $2
+		  AND DATE(ts_created_at) = CURRENT_DATE 
+		  AND ts_deleted_at IS NULL 
+		  AND c_deleted_by IS NULL
+		  AND c_status = 'PENDING'
+		FOR UPDATE
+	`
+	var existingID string
+	err = tx.QueryRow(ctx, validationQuery, id, merchantID).Scan(&existingID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fmt.Errorf("restock not eligible for approval (not found, incorrect status, or wrong merchant)")
+		}
+		return fmt.Errorf("validation query failed: %w", err)
+	}
+
+	// 2. Update status and updated_by/at (using merchantID as the approver/updater)
+	updateQuery := `
+		UPDATE stock_restock_master 
+		SET c_status = 'APPROVED', c_updated_by = $2, ts_updated_at = NOW()
+		WHERE c_id = $1
+	`
+	_, err = tx.Exec(ctx, updateQuery, id, merchantID)
+	if err != nil {
+		return fmt.Errorf("failed to update restock status: %w", err)
+	}
+
+	// 3. Insert history
+	// Look up the last sequence number for this restock
+	seqQuery := `SELECT COALESCE(MAX(i_seq), 0) + 1 FROM stock_restock_history WHERE c_stock_restock_id = $1`
+	var nextSeq int
+	err = tx.QueryRow(ctx, seqQuery, id).Scan(&nextSeq)
+	if err != nil {
+		return fmt.Errorf("failed to get next sequence: %w", err)
+	}
+
+	historyQuery := `
+		INSERT INTO stock_restock_history (c_id, c_stock_restock_id, i_seq, c_status, c_created_by, ts_created_at)
+		VALUES (gen_random_uuid()::text, $1, $2, 'APPROVED', $3, NOW())
+	`
+	_, err = tx.Exec(ctx, historyQuery, id, nextSeq, merchantID)
+	if err != nil {
+		return fmt.Errorf("failed to insert approval history: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// RejectRestock soft deletes a restock request within a transaction
+func (r *RestockRepository) RejectRestock(ctx context.Context, id, merchantID string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Validation Query
+	validationQuery := `
+		SELECT c_id 
+		FROM stock_restock_master 
+		WHERE c_id = $1
+		  AND c_merchant_id = $2
+		  AND DATE(ts_created_at) = CURRENT_DATE 
+		  AND ts_deleted_at IS NULL 
+		  AND c_deleted_by IS NULL
+		  AND c_status = 'PENDING'
+		FOR UPDATE
+	`
+	var existingID string
+	err = tx.QueryRow(ctx, validationQuery, id, merchantID).Scan(&existingID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fmt.Errorf("restock not eligible for rejection (not found, incorrect status, or wrong merchant)")
+		}
+		return fmt.Errorf("validation query failed: %w", err)
+	}
+
+	// 2. Soft delete
+	deleteQuery := `
+		UPDATE stock_restock_master 
+		SET ts_deleted_at = NOW(), c_deleted_by = $2
+		WHERE c_id = $1
+	`
+	_, err = tx.Exec(ctx, deleteQuery, id, merchantID)
+	if err != nil {
+		return fmt.Errorf("failed to delete restock: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}

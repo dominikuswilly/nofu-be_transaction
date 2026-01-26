@@ -561,3 +561,103 @@ func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
 		Data:            data,
 	})
 }
+
+func (h *RestockHandler) PatchRestock(c *gin.Context) {
+	restockID := c.Param("id")
+	if restockID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"responseCode": "400", "responseMessage": "Restock ID is required"})
+		return
+	}
+
+	var req struct {
+		Action string `json:"action" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"responseCode":    "400",
+			"responseMessage": "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	// Validate action
+	if req.Action != "approve" && req.Action != "reject" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"responseCode":    "400",
+			"responseMessage": "Invalid action. Must be 'approve' or 'reject'",
+		})
+		return
+	}
+
+	// Extract claims from Authorization header (manual extraction since this might hit an unprotected route group initially or needs custom logic)
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Missing Authorization header"})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	parts := strings.Split(tokenString, ".")
+	if len(parts) != 3 {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Invalid token format"})
+		return
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Invalid token payload"})
+		return
+	}
+
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Invalid token claims"})
+		return
+	}
+
+	merchantID, _ := claims["sub"].(string)
+	if merchantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "User ID (sub) not found in token"})
+		return
+	}
+
+	if req.Action == "approve" {
+		if err := h.repo.ApproveRestock(c.Request.Context(), restockID, merchantID); err != nil {
+			if strings.Contains(err.Error(), "not eligible") {
+				c.JSON(http.StatusForbidden, gin.H{
+					"responseCode":    "403",
+					"responseMessage": "Restock not eligible for approval",
+				})
+			} else {
+				slog.Error("Failed to approve restock", "error", err, "id", restockID)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"responseCode":    "500",
+					"responseMessage": "Failed to approve restock",
+				})
+			}
+			return
+		}
+	} else if req.Action == "reject" {
+		if err := h.repo.RejectRestock(c.Request.Context(), restockID, merchantID); err != nil {
+			if strings.Contains(err.Error(), "not eligible") {
+				c.JSON(http.StatusForbidden, gin.H{
+					"responseCode":    "403",
+					"responseMessage": "Restock not eligible for rejection",
+				})
+			} else {
+				slog.Error("Failed to reject restock", "error", err, "id", restockID)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"responseCode":    "500",
+					"responseMessage": "Failed to reject restock",
+				})
+			}
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"responseCode":    "200",
+		"responseMessage": "success",
+		"data":            nil,
+	})
+}
