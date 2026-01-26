@@ -390,3 +390,51 @@ func (r *RestockRepository) RejectRestock(ctx context.Context, id, userID string
 
 	return nil
 }
+
+// GetRestockHistoryByDate retrieves all restock requests for a specific date across all merchants
+func (r *RestockRepository) GetRestockHistoryByDate(ctx context.Context, date string) ([]models.StockRestockMaster, error) {
+	query := `
+		SELECT 
+			c_id, c_merchant_id, c_status, c_created_by, ts_created_at, 
+			COALESCE(c_updated_by, '') as c_updated_by, 
+			ts_updated_at,
+			COALESCE(d_longitude, 0) as d_longitude,
+			COALESCE(d_latitude, 0) as d_latitude
+		FROM stock_restock_master
+		WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
+		AND DATE(ts_created_at) = $1
+		ORDER BY ts_created_at DESC
+	`
+
+	rows, err := r.db.Query(ctx, query, date)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query restock history by date: %w", err)
+	}
+	defer rows.Close()
+
+	var results []models.StockRestockMaster
+	for rows.Next() {
+		var m models.StockRestockMaster
+		err := rows.Scan(
+			&m.CID,
+			&m.CMerchantID,
+			&m.CStatus,
+			&m.CCreatedBy,
+			&m.TsCreatedAt,
+			&m.CUpdatedBy,
+			&m.TsUpdatedAt,
+			&m.DLongitude,
+			&m.DLatitude,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan restock history by date: %w", err)
+		}
+		results = append(results, m)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error for history by date: %w", err)
+	}
+
+	return results, nil
+}

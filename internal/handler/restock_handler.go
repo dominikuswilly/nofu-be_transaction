@@ -655,9 +655,98 @@ func (h *RestockHandler) PatchRestock(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"responseCode":    "200",
-		"responseMessage": "success",
-		"data":            nil,
+	})
+}
+
+func (h *RestockHandler) GetAdminRestockHistory(c *gin.Context) {
+	// 1. Get date from query param, default to today if empty
+	dateStr := c.Query("date")
+	if dateStr == "" {
+		dateStr = time.Now().Format("2006-01-02")
+	}
+
+	// Validate date format
+	_, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"responseCode":    "400",
+			"responseMessage": "Invalid date format. Use YYYY-MM-DD",
+		})
+		return
+	}
+
+	// 2. Fetch history from repo
+	restocks, err := h.repo.GetRestockHistoryByDate(c.Request.Context(), dateStr)
+	if err != nil {
+		slog.Error("Failed to fetch admin restock history", "error", err, "date", dateStr)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Failed to fetch admin restock history",
+		})
+		return
+	}
+
+	// 3. Get timezone
+	loc := time.UTC
+	if val, exists := c.Get("timezone"); exists {
+		if l, ok := val.(*time.Location); ok {
+			loc = l
+		}
+	}
+
+	// 4. Enrich with merchant details
+	authHeader := c.GetHeader("Authorization")
+	merchantCache := make(map[string]*Merchant)
+
+	data := make([]RestockStatusData, len(restocks))
+	for i, r := range restocks {
+		updatedAt := ""
+		if r.TsUpdatedAt != nil {
+			updatedAt = r.TsUpdatedAt.In(loc).Format("2006-01-02T15:04:05")
+		}
+
+		merchName := ""
+		merchUsername := ""
+
+		if r.CMerchantID != "" {
+			if merchant, ok := merchantCache[r.CMerchantID]; ok {
+				if merchant != nil {
+					merchName = merchant.Name
+					merchUsername = merchant.Username
+				}
+			} else {
+				merchant, err := fetchMerchantDetails(h.cfg.CustomerServiceURL, r.CMerchantID, authHeader)
+				if err != nil {
+					slog.Warn("Failed to fetch merchant details for history view", "error", err, "merchantID", r.CMerchantID)
+					merchantCache[r.CMerchantID] = nil
+				} else {
+					merchantCache[r.CMerchantID] = merchant
+					if merchant != nil {
+						merchName = merchant.Name
+						merchUsername = merchant.Username
+					}
+				}
+			}
+		}
+
+		data[i] = RestockStatusData{
+			ID:               r.CID,
+			MerchantID:       r.CMerchantID,
+			MerchantUsername: merchUsername,
+			MerchantName:     merchName,
+			Status:           r.CStatus,
+			CreatedBy:        r.CCreatedBy,
+			CreatedAt:        r.TsCreatedAt.In(loc).Format("2006-01-02T15:04:05"),
+			UpdatedBy:        r.CUpdatedBy,
+			UpdatedAt:        updatedAt,
+			Longitude:        r.DLongitude,
+			Latitude:         r.DLatitude,
+		}
+	}
+
+	c.JSON(http.StatusOK, RestockStatusResponse{
+		ResponseCode:    "200",
+		ResponseMessage: "success",
+		Data:            data,
 	})
 }
