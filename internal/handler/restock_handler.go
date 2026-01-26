@@ -615,14 +615,14 @@ func (h *RestockHandler) PatchRestock(c *gin.Context) {
 		return
 	}
 
-	merchantID, _ := claims["sub"].(string)
-	if merchantID == "" {
+	adminID, _ := claims["sub"].(string)
+	if adminID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "User ID (sub) not found in token"})
 		return
 	}
 
 	if req.Action == "approve" {
-		if err := h.repo.ApproveRestock(c.Request.Context(), restockID, merchantID); err != nil {
+		if err := h.repo.ApproveRestock(c.Request.Context(), restockID, adminID); err != nil {
 			if strings.Contains(err.Error(), "not eligible") {
 				c.JSON(http.StatusForbidden, gin.H{
 					"responseCode":    "403",
@@ -638,7 +638,7 @@ func (h *RestockHandler) PatchRestock(c *gin.Context) {
 			return
 		}
 	} else if req.Action == "reject" {
-		if err := h.repo.RejectRestock(c.Request.Context(), restockID, merchantID); err != nil {
+		if err := h.repo.RejectRestock(c.Request.Context(), restockID, adminID); err != nil {
 			if strings.Contains(err.Error(), "not eligible") {
 				c.JSON(http.StatusForbidden, gin.H{
 					"responseCode":    "403",

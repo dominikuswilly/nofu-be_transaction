@@ -282,7 +282,7 @@ func (r *RestockRepository) GetAllRestockToday(ctx context.Context) ([]models.St
 }
 
 // ApproveRestock updates the status of a restock request to APPROVED within a transaction
-func (r *RestockRepository) ApproveRestock(ctx context.Context, id, merchantID string) error {
+func (r *RestockRepository) ApproveRestock(ctx context.Context, id, userID string) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -294,7 +294,6 @@ func (r *RestockRepository) ApproveRestock(ctx context.Context, id, merchantID s
 		SELECT c_id 
 		FROM stock_restock_master 
 		WHERE c_id = $1
-		  AND c_merchant_id = $2
 		  AND DATE(ts_created_at) = CURRENT_DATE 
 		  AND ts_deleted_at IS NULL 
 		  AND c_deleted_by IS NULL
@@ -302,21 +301,21 @@ func (r *RestockRepository) ApproveRestock(ctx context.Context, id, merchantID s
 		FOR UPDATE
 	`
 	var existingID string
-	err = tx.QueryRow(ctx, validationQuery, id, merchantID).Scan(&existingID)
+	err = tx.QueryRow(ctx, validationQuery, id).Scan(&existingID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return fmt.Errorf("restock not eligible for approval (not found, incorrect status, or wrong merchant)")
+			return fmt.Errorf("restock not eligible for approval (not found, incorrect status, or already processed)")
 		}
 		return fmt.Errorf("validation query failed: %w", err)
 	}
 
-	// 2. Update status and updated_by/at (using merchantID as the approver/updater)
+	// 2. Update status and updated_by/at (using userID as the approver/updater)
 	updateQuery := `
 		UPDATE stock_restock_master 
 		SET c_status = 'APPROVED', c_updated_by = $2, ts_updated_at = NOW()
 		WHERE c_id = $1
 	`
-	_, err = tx.Exec(ctx, updateQuery, id, merchantID)
+	_, err = tx.Exec(ctx, updateQuery, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to update restock status: %w", err)
 	}
@@ -334,7 +333,7 @@ func (r *RestockRepository) ApproveRestock(ctx context.Context, id, merchantID s
 		INSERT INTO stock_restock_history (c_id, c_stock_restock_id, i_seq, c_status, c_created_by, ts_created_at)
 		VALUES (gen_random_uuid()::text, $1, $2, 'APPROVED', $3, NOW())
 	`
-	_, err = tx.Exec(ctx, historyQuery, id, nextSeq, merchantID)
+	_, err = tx.Exec(ctx, historyQuery, id, nextSeq, userID)
 	if err != nil {
 		return fmt.Errorf("failed to insert approval history: %w", err)
 	}
@@ -347,7 +346,7 @@ func (r *RestockRepository) ApproveRestock(ctx context.Context, id, merchantID s
 }
 
 // RejectRestock soft deletes a restock request within a transaction
-func (r *RestockRepository) RejectRestock(ctx context.Context, id, merchantID string) error {
+func (r *RestockRepository) RejectRestock(ctx context.Context, id, userID string) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -359,7 +358,6 @@ func (r *RestockRepository) RejectRestock(ctx context.Context, id, merchantID st
 		SELECT c_id 
 		FROM stock_restock_master 
 		WHERE c_id = $1
-		  AND c_merchant_id = $2
 		  AND DATE(ts_created_at) = CURRENT_DATE 
 		  AND ts_deleted_at IS NULL 
 		  AND c_deleted_by IS NULL
@@ -367,10 +365,10 @@ func (r *RestockRepository) RejectRestock(ctx context.Context, id, merchantID st
 		FOR UPDATE
 	`
 	var existingID string
-	err = tx.QueryRow(ctx, validationQuery, id, merchantID).Scan(&existingID)
+	err = tx.QueryRow(ctx, validationQuery, id).Scan(&existingID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return fmt.Errorf("restock not eligible for rejection (not found, incorrect status, or wrong merchant)")
+			return fmt.Errorf("restock not eligible for rejection (not found, incorrect status, or already processed)")
 		}
 		return fmt.Errorf("validation query failed: %w", err)
 	}
@@ -378,10 +376,10 @@ func (r *RestockRepository) RejectRestock(ctx context.Context, id, merchantID st
 	// 2. Soft delete
 	deleteQuery := `
 		UPDATE stock_restock_master 
-		SET ts_deleted_at = NOW(), c_deleted_by = $2
+		SET ts_deleted_at = NOW(), c_deleted_by = $2, c_status='REJECTED'
 		WHERE c_id = $1
 	`
-	_, err = tx.Exec(ctx, deleteQuery, id, merchantID)
+	_, err = tx.Exec(ctx, deleteQuery, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete restock: %w", err)
 	}
