@@ -654,6 +654,11 @@ func (h *RestockHandler) PatchRestock(c *gin.Context) {
 			return
 		}
 	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"responseCode":    "200",
+		"responseMessage": "success",
+	})
 }
 
 func (h *RestockHandler) GetAdminRestockHistory(c *gin.Context) {
