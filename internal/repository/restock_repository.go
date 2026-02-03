@@ -258,9 +258,9 @@ func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEn
 	}
 
 	if keyword != "" {
-		baseQuery += fmt.Sprintf(" AND (c_merchant_nm ILIKE $%d OR c_id ILIKE $%d)", argIndex, argIndex)
-		args = append(args, "%"+keyword+"%")
-		argIndex++
+		baseQuery += fmt.Sprintf(" AND (c_merchant_nm::text ILIKE $%d OR c_id::text ILIKE $%d)", argIndex, argIndex+1)
+		args = append(args, "%"+keyword+"%", "%"+keyword+"%")
+		argIndex += 2
 	}
 
 	if status != "" {
@@ -279,7 +279,7 @@ func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEn
 	// Data query with pagination
 	selectQuery := `
 		SELECT 
-			c_id, c_merchant_id, c_merchant_nm, c_status, c_created_by, ts_created_at, 
+			c_id, c_merchant_id, COALESCE(c_merchant_nm, '') as c_merchant_nm, c_status, c_created_by, ts_created_at, 
 			COALESCE(c_updated_by, '') as c_updated_by, 
 			ts_updated_at,
 			COALESCE(d_longitude, 0) as d_longitude,
