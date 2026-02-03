@@ -29,10 +29,10 @@ func (r *RestockRepository) CreateRestock(ctx context.Context, master *models.St
 
 	// 1. Insert into stock_restock_master
 	masterQuery := `
-		INSERT INTO stock_restock_master (c_id, c_merchant_id, c_status, c_created_by, ts_created_at, d_longitude, d_latitude)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO stock_restock_master (c_id, c_merchant_id, c_merchant_nm, c_status, c_created_by, ts_created_at, d_longitude, d_latitude)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-	_, err = tx.Exec(ctx, masterQuery, master.CID, master.CMerchantID, master.CStatus, master.CCreatedBy, master.TsCreatedAt, master.DLongitude, master.DLatitude)
+	_, err = tx.Exec(ctx, masterQuery, master.CID, master.CMerchantID, master.CMerchantNm, master.CStatus, master.CCreatedBy, master.TsCreatedAt, master.DLongitude, master.DLatitude)
 	if err != nil {
 		return fmt.Errorf("failed to insert restock master: %w", err)
 	}

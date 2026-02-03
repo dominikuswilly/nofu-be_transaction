@@ -6,6 +6,7 @@ import "time"
 type StockRestockMaster struct {
 	CID         string     // c_id - UUID v7
 	CMerchantID string     // c_merchant_id - by authorization token (claims.sub)
+	CMerchantNm string     // c_merchant_nm - fetched from customer service
 	CStatus     string     // c_status - pending
 	CCreatedBy  string     // c_created_by
 	TsCreatedAt time.Time  // ts_created_at

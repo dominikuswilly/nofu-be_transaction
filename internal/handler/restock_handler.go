@@ -158,12 +158,26 @@ func (h *RestockHandler) CreateRestock(c *gin.Context) {
 
 	merchantID := userID // As per requirement: c_merchant_id : by authorization token (claims.sub)
 
+	// Fetch merchant details to get name
+	var merchantNm string
+	merchant, err := fetchMerchantDetails(h.cfg.CustomerServiceURL, merchantID, authHeader)
+	if err != nil {
+		slog.Warn("Failed to fetch merchant details during restock creation", "error", err, "merchantID", merchantID)
+		// We can proceed with empty name or Handle error.
+		// For now, proceeding with empty name as it might be better than failing the whole transaction if just name is missing,
+		// but typically if it's required for display we might want it.
+		// Given the user asked to store it, let's assume valid merchant should have it.
+	} else if merchant != nil {
+		merchantNm = merchant.Name
+	}
+
 	// Prepare data
 	masterID, _ := uuid.NewV7()
 	now := time.Now()
 	master := &models.StockRestockMaster{
 		CID:         masterID.String(),
 		CMerchantID: merchantID,
+		CMerchantNm: merchantNm,
 		CStatus:     "PENDING",
 		CCreatedBy:  userID,
 		TsCreatedAt: now,
