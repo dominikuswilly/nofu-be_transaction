@@ -233,42 +233,68 @@ func (r *RestockRepository) GetRestockHistory(ctx context.Context, restockID str
 	return results, nil
 }
 
-// GetAllRestock retrieves all restock requests across all merchants, optionally filtered by date range
-func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEnd string) ([]models.StockRestockMaster, error) {
-	query := `
-		SELECT 
-			c_id, c_merchant_id, c_status, c_created_by, ts_created_at, 
-			COALESCE(c_updated_by, '') as c_updated_by, 
-			ts_updated_at,
-			COALESCE(d_longitude, 0) as d_longitude,
-			COALESCE(d_latitude, 0) as d_latitude
+// GetAllRestock retrieves restock requests with filtering and pagination
+func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEnd, keyword, status string, page, limit int) ([]models.StockRestockMaster, int, error) {
+	baseQuery := `
 		FROM stock_restock_master
 		WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
 	`
-
 	args := []interface{}{}
 	argIndex := 1
 
-	// Add date range filters if provided
+	// Add filters
 	if timeStart != "" && timeEnd != "" {
-		query += fmt.Sprintf(" AND DATE(ts_created_at) BETWEEN $%d AND $%d", argIndex, argIndex+1)
+		baseQuery += fmt.Sprintf(" AND DATE(ts_created_at) BETWEEN $%d AND $%d", argIndex, argIndex+1)
 		args = append(args, timeStart, timeEnd)
 		argIndex += 2
 	} else if timeStart != "" {
-		query += fmt.Sprintf(" AND DATE(ts_created_at) >= $%d", argIndex)
+		baseQuery += fmt.Sprintf(" AND DATE(ts_created_at) >= $%d", argIndex)
 		args = append(args, timeStart)
 		argIndex++
 	} else if timeEnd != "" {
-		query += fmt.Sprintf(" AND DATE(ts_created_at) <= $%d", argIndex)
+		baseQuery += fmt.Sprintf(" AND DATE(ts_created_at) <= $%d", argIndex)
 		args = append(args, timeEnd)
 		argIndex++
 	}
 
-	query += " ORDER BY ts_created_at DESC"
+	if keyword != "" {
+		baseQuery += fmt.Sprintf(" AND (c_merchant_nm ILIKE $%d OR c_id ILIKE $%d)", argIndex, argIndex)
+		args = append(args, "%"+keyword+"%")
+		argIndex++
+	}
 
-	rows, err := r.db.Query(ctx, query, args...)
+	if status != "" {
+		baseQuery += fmt.Sprintf(" AND c_status = $%d", argIndex)
+		args = append(args, status)
+		argIndex++
+	}
+
+	// Count total query
+	countQuery := `SELECT COUNT(*) ` + baseQuery
+	var total int
+	if err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count restock master: %w", err)
+	}
+
+	// Data query with pagination
+	selectQuery := `
+		SELECT 
+			c_id, c_merchant_id, c_merchant_nm, c_status, c_created_by, ts_created_at, 
+			COALESCE(c_updated_by, '') as c_updated_by, 
+			ts_updated_at,
+			COALESCE(d_longitude, 0) as d_longitude,
+			COALESCE(d_latitude, 0) as d_latitude
+		` + baseQuery + ` ORDER BY ts_created_at DESC`
+
+	if limit > 0 && page > 0 {
+		offset := (page - 1) * limit
+		selectQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+		args = append(args, limit, offset)
+	}
+
+	rows, err := r.db.Query(ctx, selectQuery, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query restock master for admin: %w", err)
+		return nil, 0, fmt.Errorf("failed to query restock master for admin: %w", err)
 	}
 	defer rows.Close()
 
@@ -278,6 +304,7 @@ func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEn
 		err := rows.Scan(
 			&m.CID,
 			&m.CMerchantID,
+			&m.CMerchantNm,
 			&m.CStatus,
 			&m.CCreatedBy,
 			&m.TsCreatedAt,
@@ -287,16 +314,16 @@ func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEn
 			&m.DLatitude,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan restock master for admin: %w", err)
+			return nil, 0, fmt.Errorf("failed to scan restock master for admin: %w", err)
 		}
 		results = append(results, m)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows error for admin: %w", err)
+		return nil, 0, fmt.Errorf("rows error for admin: %w", err)
 	}
 
-	return results, nil
+	return results, total, nil
 }
 
 // ApproveRestock updates the status of a restock request to APPROVED within a transaction

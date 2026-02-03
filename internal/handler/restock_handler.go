@@ -4,7 +4,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"log/slog"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,10 +52,18 @@ type RestockStatusData struct {
 	Latitude         float64 `json:"latitude"`
 }
 
+type PaginationMeta struct {
+	CurrentPage int `json:"currentPage"`
+	TotalPage   int `json:"totalPage"`
+	TotalRecord int `json:"totalRecord"`
+	Limit       int `json:"limit"`
+}
+
 type RestockStatusResponse struct {
 	ResponseCode    string              `json:"responseCode"`
 	ResponseMessage string              `json:"responseMessage"`
 	Data            []RestockStatusData `json:"data"`
+	Meta            *PaginationMeta     `json:"meta,omitempty"`
 }
 
 type RestockDetailData struct {
@@ -501,9 +511,13 @@ func (h *RestockHandler) GetRestockHistory(c *gin.Context) {
 }
 
 func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
-	// Get optional time range query parameters
+	// Get query parameters
 	timeStart := c.Query("time_start")
 	timeEnd := c.Query("time_end")
+	keyword := c.Query("keyword")
+	status := c.Query("status")
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "10")
 
 	// Validate date format if provided
 	if timeStart != "" {
@@ -525,7 +539,17 @@ func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
 		}
 	}
 
-	restocks, err := h.repo.GetAllRestock(c.Request.Context(), timeStart, timeEnd)
+	// Parse pagination
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+
+	restocks, total, err := h.repo.GetAllRestock(c.Request.Context(), timeStart, timeEnd, keyword, status, page, limit)
 	if err != nil {
 		slog.Error("Failed to fetch admin restock status", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -544,6 +568,10 @@ func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
 	}
 
 	// Fetch merchant details (GetAdminRestock might have multiple merchants)
+	// NOTE: with c_merchant_nm now in DB, we might not need to fetch details for name if DB has it.
+	// However, we still might want merchantUsername if it's not in DB.
+	// For optimization, if we have name in DB, we can skip fetching if username is not strictly needed or if we are fine with potentially empty username.
+	// But let's keep fetching for consistency to get username, but prioritize DB name if available.
 	authHeader := c.GetHeader("Authorization")
 	merchantCache := make(map[string]*Merchant)
 
@@ -554,24 +582,29 @@ func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
 			updatedAt = r.TsUpdatedAt.In(loc).Format("2006-01-02T15:04:05")
 		}
 
-		merchName := ""
+		merchName := r.CMerchantNm
 		merchUsername := ""
 
+		// Only fetch if we need username or if name is missing (backward compatibility)
 		if r.CMerchantID != "" {
 			if merchant, ok := merchantCache[r.CMerchantID]; ok {
 				if merchant != nil {
-					merchName = merchant.Name
+					if merchName == "" {
+						merchName = merchant.Name
+					}
 					merchUsername = merchant.Username
 				}
 			} else {
 				merchant, err := fetchMerchantDetails(h.cfg.CustomerServiceURL, r.CMerchantID, authHeader)
 				if err != nil {
 					slog.Warn("Failed to fetch merchant details for admin view", "error", err, "merchantID", r.CMerchantID)
-					merchantCache[r.CMerchantID] = nil // Cache nil to avoid repeated failed calls
+					merchantCache[r.CMerchantID] = nil
 				} else {
 					merchantCache[r.CMerchantID] = merchant
 					if merchant != nil {
-						merchName = merchant.Name
+						if merchName == "" {
+							merchName = merchant.Name
+						}
 						merchUsername = merchant.Username
 					}
 				}
@@ -593,10 +626,19 @@ func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
 		}
 	}
 
+	// Calculate pagination meta
+	totalPage := int(math.Ceil(float64(total) / float64(limit)))
+
 	c.JSON(http.StatusOK, RestockStatusResponse{
 		ResponseCode:    "200",
 		ResponseMessage: "success",
 		Data:            data,
+		Meta: &PaginationMeta{
+			CurrentPage: page,
+			TotalPage:   totalPage,
+			TotalRecord: total,
+			Limit:       limit,
+		},
 	})
 }
 
