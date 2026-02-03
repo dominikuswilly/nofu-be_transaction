@@ -233,8 +233,8 @@ func (r *RestockRepository) GetRestockHistory(ctx context.Context, restockID str
 	return results, nil
 }
 
-// GetAllRestockToday retrieves all restock requests for the current day across all merchants
-func (r *RestockRepository) GetAllRestockToday(ctx context.Context) ([]models.StockRestockMaster, error) {
+// GetAllRestock retrieves all restock requests across all merchants, optionally filtered by date range
+func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEnd string) ([]models.StockRestockMaster, error) {
 	query := `
 		SELECT 
 			c_id, c_merchant_id, c_status, c_created_by, ts_created_at, 
@@ -244,11 +244,29 @@ func (r *RestockRepository) GetAllRestockToday(ctx context.Context) ([]models.St
 			COALESCE(d_latitude, 0) as d_latitude
 		FROM stock_restock_master
 		WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
-		AND DATE(ts_created_at) = CURRENT_DATE
-		ORDER BY ts_created_at DESC
 	`
 
-	rows, err := r.db.Query(ctx, query)
+	args := []interface{}{}
+	argIndex := 1
+
+	// Add date range filters if provided
+	if timeStart != "" && timeEnd != "" {
+		query += fmt.Sprintf(" AND DATE(ts_created_at) BETWEEN $%d AND $%d", argIndex, argIndex+1)
+		args = append(args, timeStart, timeEnd)
+		argIndex += 2
+	} else if timeStart != "" {
+		query += fmt.Sprintf(" AND DATE(ts_created_at) >= $%d", argIndex)
+		args = append(args, timeStart)
+		argIndex++
+	} else if timeEnd != "" {
+		query += fmt.Sprintf(" AND DATE(ts_created_at) <= $%d", argIndex)
+		args = append(args, timeEnd)
+		argIndex++
+	}
+
+	query += " ORDER BY ts_created_at DESC"
+
+	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query restock master for admin: %w", err)
 	}

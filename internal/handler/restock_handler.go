@@ -487,7 +487,31 @@ func (h *RestockHandler) GetRestockHistory(c *gin.Context) {
 }
 
 func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
-	restocks, err := h.repo.GetAllRestockToday(c.Request.Context())
+	// Get optional time range query parameters
+	timeStart := c.Query("time_start")
+	timeEnd := c.Query("time_end")
+
+	// Validate date format if provided
+	if timeStart != "" {
+		if _, err := time.Parse("2006-01-02", timeStart); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"responseCode":    "400",
+				"responseMessage": "Invalid time_start format. Use YYYY-MM-DD",
+			})
+			return
+		}
+	}
+	if timeEnd != "" {
+		if _, err := time.Parse("2006-01-02", timeEnd); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"responseCode":    "400",
+				"responseMessage": "Invalid time_end format. Use YYYY-MM-DD",
+			})
+			return
+		}
+	}
+
+	restocks, err := h.repo.GetAllRestock(c.Request.Context(), timeStart, timeEnd)
 	if err != nil {
 		slog.Error("Failed to fetch admin restock status", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
