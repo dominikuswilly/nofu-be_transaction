@@ -234,7 +234,7 @@ func (r *RestockRepository) GetRestockHistory(ctx context.Context, restockID str
 }
 
 // GetAllRestock retrieves restock requests with filtering and pagination
-func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEnd, keyword, status string, page, limit int) ([]models.StockRestockMaster, int, error) {
+func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEnd, keyword string, statuses []string, page, limit int) ([]models.StockRestockMaster, int, error) {
 	baseQuery := `
 		FROM stock_restock_master
 		WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
@@ -263,9 +263,9 @@ func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEn
 		argIndex += 2
 	}
 
-	if status != "" {
-		baseQuery += fmt.Sprintf(" AND c_status = $%d", argIndex)
-		args = append(args, status)
+	if len(statuses) > 0 {
+		baseQuery += fmt.Sprintf(" AND c_status = ANY($%d)", argIndex)
+		args = append(args, statuses)
 		argIndex++
 	}
 

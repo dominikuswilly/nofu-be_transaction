@@ -515,7 +515,11 @@ func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
 	timeStart := c.Query("time_start")
 	timeEnd := c.Query("time_end")
 	keyword := c.Query("keyword")
-	status := c.Query("status")
+	statusParam := c.Query("status")
+	var statuses []string
+	if statusParam != "" {
+		statuses = strings.Split(statusParam, ",")
+	}
 	pageStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "10")
 
@@ -549,7 +553,7 @@ func (h *RestockHandler) GetAdminRestock(c *gin.Context) {
 		limit = 10
 	}
 
-	restocks, total, err := h.repo.GetAllRestock(c.Request.Context(), timeStart, timeEnd, keyword, status, page, limit)
+	restocks, total, err := h.repo.GetAllRestock(c.Request.Context(), timeStart, timeEnd, keyword, statuses, page, limit)
 	if err != nil {
 		slog.Error("Failed to fetch admin restock status", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
