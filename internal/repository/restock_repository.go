@@ -243,7 +243,6 @@ func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEn
 			COALESCE(d_longitude, 0) as d_longitude,
 			COALESCE(d_latitude, 0) as d_latitude
 		FROM stock_restock_master
-		WHERE ts_deleted_at IS NULL AND c_deleted_by IS NULL
 	`
 
 	args := []interface{}{}
@@ -251,15 +250,15 @@ func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEn
 
 	// Add date range filters if provided
 	if timeStart != "" && timeEnd != "" {
-		query += fmt.Sprintf(" AND DATE(ts_created_at) BETWEEN $%d AND $%d", argIndex, argIndex+1)
+		query += fmt.Sprintf(" WHERE DATE(ts_created_at) BETWEEN $%d AND $%d", argIndex, argIndex+1)
 		args = append(args, timeStart, timeEnd)
 		argIndex += 2
 	} else if timeStart != "" {
-		query += fmt.Sprintf(" AND DATE(ts_created_at) >= $%d", argIndex)
+		query += fmt.Sprintf(" WHERE DATE(ts_created_at) >= $%d", argIndex)
 		args = append(args, timeStart)
 		argIndex++
 	} else if timeEnd != "" {
-		query += fmt.Sprintf(" AND DATE(ts_created_at) <= $%d", argIndex)
+		query += fmt.Sprintf(" WHERE DATE(ts_created_at) <= $%d", argIndex)
 		args = append(args, timeEnd)
 		argIndex++
 	}
