@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -264,8 +265,13 @@ func (r *RestockRepository) GetAllRestock(ctx context.Context, timeStart, timeEn
 	}
 
 	if len(statuses) > 0 {
-		baseQuery += fmt.Sprintf(" AND c_status = ANY($%d)", argIndex)
-		args = append(args, statuses)
+		// Normalize statuses to lowercase for case-insensitive comparison
+		lowerStatuses := make([]string, len(statuses))
+		for i, s := range statuses {
+			lowerStatuses[i] = strings.ToLower(s)
+		}
+		baseQuery += fmt.Sprintf(" AND LOWER(c_status) = ANY($%d)", argIndex)
+		args = append(args, lowerStatuses)
 		argIndex++
 	}
 
