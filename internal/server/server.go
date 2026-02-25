@@ -89,6 +89,7 @@ func NewServer(cfg *config.Config, healthHandler *handler.HealthHandler, stockHa
 		{
 			admin.GET("/restock", restockHandler.GetAdminRestock)
 			admin.PATCH("/restock/:id", restockHandler.PatchRestock)
+			admin.PATCH("/restock/:id/action/deliver", restockHandler.DeliverRestock)
 			admin.GET("/restock/history", restockHandler.GetAdminRestockHistory)
 			admin.GET("/sales/report/summary", salesHistoryHandler.GetSalesReportSummary)
 		}

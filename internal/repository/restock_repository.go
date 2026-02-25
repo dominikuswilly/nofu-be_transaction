@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -488,4 +489,57 @@ func (r *RestockRepository) GetRestockHistoryByDate(ctx context.Context, date st
 	}
 
 	return results, nil
+}
+
+// DeliverRestock updates the status of a restock request to DELIVERED if it is currently APPROVED
+func (r *RestockRepository) DeliverRestock(ctx context.Context, id string, updatedBy string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Update the master status if it's currently APPROVED
+	updateQuery := `
+		UPDATE stock_restock_master
+		SET c_status = 'DELIVERED', c_updated_by = $1, ts_updated_at = NOW()
+		WHERE c_id = $2 AND c_status = 'APPROVED'
+	`
+	tag, err := tx.Exec(ctx, updateQuery, updatedBy, id)
+	if err != nil {
+		return fmt.Errorf("failed to update restock status: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("there is bad request or there is no suitable condition")
+	}
+
+	// Get the max sequence number for history
+	var maxSeq int
+	seqQuery := `SELECT COALESCE(MAX(i_seq), 0) FROM stock_restock_history WHERE c_stock_restock_id = $1`
+	err = tx.QueryRow(ctx, seqQuery, id).Scan(&maxSeq)
+	if err != nil {
+		return fmt.Errorf("failed to get max history sequence: %w", err)
+	}
+
+	historyID, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("failed to generate history id: %w", err)
+	}
+
+	// Insert into history
+	historyQuery := `
+		INSERT INTO stock_restock_history (c_id, c_stock_restock_id, i_seq, c_status, c_created_by, ts_created_at)
+		VALUES ($1, $2, $3, 'DELIVERED', $4, NOW())
+	`
+	_, err = tx.Exec(ctx, historyQuery, historyID.String(), id, maxSeq+1, updatedBy)
+	if err != nil {
+		return fmt.Errorf("failed to insert restock history: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	slog.Info("Restock delivered successfully", "id", id)
+	return nil
 }

@@ -837,3 +837,67 @@ func (h *RestockHandler) GetAdminRestockHistory(c *gin.Context) {
 		Data:            data,
 	})
 }
+
+// DeliverRestock handles updating restock status to DELIVERED
+func (h *RestockHandler) DeliverRestock(c *gin.Context) {
+	restockID := c.Param("id")
+	if restockID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"responseCode": "400", "responseMessage": "Restock ID is required"})
+		return
+	}
+
+	// Extract claims from Authorization header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Missing Authorization header"})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	parts := strings.Split(tokenString, ".")
+	if len(parts) != 3 {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Invalid token format"})
+		return
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Invalid token payload"})
+		return
+	}
+
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "Invalid token claims"})
+		return
+	}
+
+	userID, _ := claims["sub"].(string)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"responseCode": "401", "responseMessage": "User ID (sub) not found in token"})
+		return
+	}
+
+	err = h.repo.DeliverRestock(c.Request.Context(), restockID, userID)
+	if err != nil {
+		if err.Error() == "there is bad request or there is no suitable condition" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"responseCode":    "400",
+				"responseMessage": "there is bad request or there is no suitable condition",
+			})
+			return
+		}
+
+		slog.Error("Failed to deliver restock", "error", err, "restockID", restockID)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"responseCode":    "500",
+			"responseMessage": "Failed to deliver restock",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"responseCode":    "200",
+		"responseMessage": "success",
+	})
+}
